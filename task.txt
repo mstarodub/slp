@@ -9,4 +9,4 @@ max:
         possibly efficiently (inference + sampling)
     * something to aid programmer in meeting requirements
         + all clauses add to 1
-    * algorithms: from Stephen Muggleton paper
+    * algorithms: from cussens paper
