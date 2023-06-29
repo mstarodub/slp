@@ -3,10 +3,15 @@ min:
         either meta- or via AST (parse with definite clause grammar)
         invent syntax (or use the one from ex. sheets)
         + should be able to compute basic probabilities
-        + sampling for a Stochastic Logic Program (generating worlds)
+        + sampling for a Stochastic Logic Program (generating bindings for the query var.)
 max:
     * implement parameter learning
-        possibly efficiently (inference + sampling)
+        parameter estimation in SLP (from cussens-parameter paper)
+        for this: efficient inference
+        + sampling
+            algorithms: from cussens paper
     * something to aid programmer in meeting requirements
-        + all clauses add to 1
-    * algorithms: from cussens paper
+        all clauses add to < 1 für jede mögliche belegung
+
+implementation:
+berechnungen können alle in ffi sein (c/c++/rust), core logic in prolog
