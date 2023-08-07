@@ -1,17 +1,21 @@
 % lesen von probabilities
 :- op(1199,xfx,::).
 
-demo(Prob :: :-(Head,Body)) :-
-    demo(Prob :: :-(Head,Body), 1).
+demo((Prob :: Head) :- Body) :-
+    demo((Prob :: Head) :- Body, 1).
 
 demo(Prob :: Rule) :-
-    demo(Prob :: :-(Rule,true), 1).
+    demo((Prob :: Rule) :- true, 1).
 
 demo(Prob :: true, Akk).
 
-demo(Prob :: :-(Head,Body), Akk) :-
+demo((Prob :: Head) :- Body, Akk) :-
     Akk1 is Akk * Prob,
+
+    %Rule =.. [Head, Body],
+    % :-(Prob::Rule, Body),
     clause(Prob :: Head, Body),
+
     get_prob(Body, P),
     demo(P :: Body, Akk1).
 
