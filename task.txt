@@ -15,4 +15,8 @@ max:
 
 implementation:
 berechnungen können alle in ffi sein (c/c++/rust), core logic in prolog
-    ffi: https://github.com/k3ut0i/swipl-ffi-examples
+    ffi:
+        https://github.com/k3ut0i/swipl-ffi-examples
+        https://www.swi-prolog.org/pldoc/man?section=shlib
+        https://www.swi-prolog.org/pldoc/man?section=foreign-read-list
+        https://www.swi-prolog.org/pldoc/man?section=foreign-unify
