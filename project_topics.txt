@@ -1,0 +1,31 @@
+A very brief annotated list of topic suggestions:
+
+Inference:
+- First-Order weighted model counting [Lecture in 3 weeks time]
+	- counting satisfying assignments to sentences in FOL
+	- every model receives weight --> sum over all
+	- decoupling logical/symbolic representation from statistical/numeric representation encapsulated in weight function
+- Variable Elimination + Compilation to Bayesian networks [Ask me]
+  [Google "Bayesian Networks" and "Variable Elimination"]
+	- directed acyclic graph to represent variables + their conditional dependencies
+	- application: predicting likelihood of causes for given event
+	- \forall nodes: probability function: parent variables as inputs, probability of current node as output
+	- mechanism to automatically apply Bayes' theorem to complex problems
+	- factor f of variables V: relation between each instantiation v of variables to non-negative number: f(x)
+	- operations include variable summation, factor multiplication
+	- most common query: p(X|E=e), i.e. E is observed taking value e; algorithm to compute this probability is called variable elimination
+	- finding best order of elimination: NP-hard problem
+- Compilation to C programs [Kazemi and Poole: Knowledge Compilation for Lifted Probabilistic Inference -- Compiling to a Low-Level Language]
+
+Learning:
+- Parameter learning [Google "Parameter learning" "probabilistic logic programs"]
+	- sounds like reimplementing existing algorithm
+- Rule induction [Cropper, Inductive Logic Programming at 30]
+	- learning relations instead of functions
+	- data efficiency: drawing hypotheses from small numbers of examples
+	- learning with complex relational information; supporting lifelong and transfer learning
+	- top-down or bottom-up approaches, i.e. specialising a general hypothesis or generalising examples
+	- meta-level: programme reasoning about programmes; delegating search
+
+Sampling techniques [Riguzzi: MCINTYRE -- A Monte Carlo system for probabilistic logic programming
+]
