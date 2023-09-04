@@ -1,41 +1,52 @@
-% lesen von probabilities
 :- op(1199,xfx,::).
 
-inference(true, 1) :- !. % base case 'Rule = true'
+% base case 'Rule = true'
+inference(true, 1) :- !.
 
-inference(Rule, Prob) :- % base case 'body of Rule = true', i.e. Rule atomic and in particular not compound
+% base case 'body of Rule = true', i.e. Rule atomic and in particular not compound
+inference(Rule, Prob) :-
     clause(Prob :: Rule, true).
 
-inference(Rule, ProbRes) :- % case 'compound body, conjunction'
-    ( Rule \= (Goal1, Goal2), Rule \= (Goal1; Goal2) % check: Rule not compound
+% case 'compound body, conjunction'
+inference(Rule, ProbRes) :-
+    % check: Rule not compound
+    ( Rule \= (Goal1, Goal2), Rule \= (Goal1; Goal2)
     -> clause((PRet :: Rule), Body),
         Body = (Goal1, Goal2), 
         inference(Goal1, Prob1),
         inference(Goal2, Prob2),
         ProbRes is PRet*Prob1*Prob2
-    ; rule_rec(Rule, ProbRes), !). % cut guarantees single rule_rec call for current Rule; otherwise called again in following cases
+    % cut guarantees single rule_rec call for current Rule; otherwise called again in following cases
+    ; rule_rec(Rule, ProbRes), !).
 
-inference(Rule, ProbRes) :- % case 'compound body, disjunction'
-    ( Rule \= (Goal1, Goal2), Rule \= (Goal1; Goal2) % check: Rule not compound
+% case 'compound body, disjunction'
+inference(Rule, ProbRes) :-
+    % check: Rule not compound
+    ( Rule \= (Goal1, Goal2), Rule \= (Goal1; Goal2)
     -> clause((PRet :: Rule), Body),
         Body = (Goal1; Goal2), 
         inference(Goal1, Prob1),
         inference(Goal2, Prob2),
         % this recursion exactly corresponds to the inclusion-exclusion-principle!
         ProbRes is PRet*(Prob1 + Prob2 - Prob1*Prob2)
-    ; rule_rec(Rule, ProbRes), !). % cut guarantees single rule_rec call for current Rule; otherwise called again in following case
+    ; rule_rec(Rule, ProbRes), !).
 
-inference(Rule, ProbRes) :- % case 'single predicate body'
-    ( Rule \= (Goal1, Goal2), Rule \= (Goal1; Goal2) % check: Rule not compound
+% case 'single predicate body'
+inference(Rule, ProbRes) :-
+    % check: Rule not compound
+    ( Rule \= (Goal1, Goal2), Rule \= (Goal1; Goal2)
     -> clause((PRet :: Rule), Body),
         ( Body = true
         -> fail, !
-        ; Body \= (Goal1, Goal2), % preventing compound case from unifying with this more general case
-            Body \= (Goal1; Goal2), % preventing compound case from unifying with this more general case
+        % preventing compound case from unifying with this more general case
+        ; Body \= (Goal1, Goal2),
+            % preventing compound case from unifying with this more general case
+            Body \= (Goal1; Goal2),
             Body = Goal,
             inference(Goal, Prob),
             ProbRes is PRet*Prob)
-    ; rule_rec(Rule, ProbRes), !). % cut guarantees single rule_rec call for current Rule; perhaps not necessary, but symmetric to above cases
+    % cut guarantees single rule_rec call for current Rule; perhaps not necessary, but symmetric to above cases
+    ; rule_rec(Rule, ProbRes), !).
 
 rule_rec((Goal1, Goal2), ProbRes) :-
     inference(Goal1, Prob1),
@@ -46,8 +57,6 @@ rule_rec((Goal1; Goal2), ProbRes) :-
     inference(Goal1, Prob1),
     inference(Goal2, Prob2),
     ProbRes is (Prob1 + Prob2  - Prob1*Prob2).
-
-% not yet tested
 
 % seem to be all ok
 0.5::roll_dice(2).
