@@ -1,8 +1,3 @@
-% vim: filetype=prolog
-
-
-
-
 % lesen von probabilities
 :- op(1199,xfx,::).
 
@@ -26,6 +21,7 @@ inference(Rule, ProbRes) :- % case 'compound body, disjunction'
         Body = (Goal1; Goal2), 
         inference(Goal1, Prob1),
         inference(Goal2, Prob2),
+        % this recursion exactly corresponds to the inclusion-exclusion-principle!
         ProbRes is PRet*(Prob1 + Prob2 - Prob1*Prob2)
     ; rule_rec(Rule, ProbRes), !). % cut guarantees single rule_rec call for current Rule; otherwise called again in following case
 
@@ -49,7 +45,7 @@ rule_rec((Goal1, Goal2), ProbRes) :-
 rule_rec((Goal1; Goal2), ProbRes) :-
     inference(Goal1, Prob1),
     inference(Goal2, Prob2),
-    ProbRes is (Prob1 + Prob2 - Prob1*Prob2).
+    ProbRes is (Prob1 + Prob2  - Prob1*Prob2).
 
 % not yet tested
 
@@ -65,13 +61,13 @@ rule_rec((Goal1; Goal2), ProbRes) :-
 0.7 :: u(X) :- q(X), r(X), p(X).
 0.3 :: u(X) :- q(X); r(X); p(X).
 
-0.4 :: q(a).
-0.5 :: q(b).
+0.2 :: q(a).
+0.1 :: q(b).
 0.7 :: q(c).
 
 0.3 :: r(a).
-0.7 :: r(b).
+0.9 :: r(b).
 
-0.6 :: p(a).
+0.0 :: p(a).
 0.1 :: p(b).
 0.9 :: p(c).
