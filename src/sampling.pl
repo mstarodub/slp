@@ -1,34 +1,35 @@
-% vim: filetype=prolog
-
-:- op(601, xfx, <--).
 :- op(600, xfx, ::).
 
-sampling([]).
-sampling([LAtom|Atoms]) :-
-    findall(Prob :: Body, Prob :: LAtom <-- Body, TempSubs),
-    transform_probabilities(TempSubs, Subs),
-    last(Subs, ProbWeight),
+% TODO: base case
+sampling(Head) :-
+    % get all probability-head pairs
+    Head =.. [Functor|ArgsL],
+    findall(Prob::Head, Prob::Head, ProbHeadPairs),
+    transform_probabilities(ProbHeadPairs, ShiftedProbHeadPairs),
+    last(ShiftedProbHeadPairs, UpperUniformEnd :: _),
+    % we just sample once for now
     !,
-    % Use clause?
-    bagof(Prob :: Body, Prob :: LAtom <-- Body, SubCandidate),
+    SampleProb is random_float * UpperUniformEnd,
+    select_head(ShiftedProbHeadPairs, SampleProb, Head).
 
+select_head([], _, false).
+select_head([ShiftedProb::ShiftedHead|Tail], SampleProb, Sample) :-
+    ( ShiftedProb >= SampleProb
+    -> Sample = ShiftedHead
+    ; select_head(Tail, SampleProb, Sample)).
 
-    select_sub(Subs, Rand, 0, Sub),
-    append(Sub,Atoms,NewAtoms),
-    sampling(NewAtoms).
-
-select_sub([LProb :: LSub|Subs], Rand, Akk, Sub) :-
-    ChoiceValue is LProb + Akk,
-    (ChoiceValue >= Rand
-        -> Sub = LSub
-        ; select_sub(Subs, Rand, ChoiceValue, Sub)).
-
+% shift the probabilities recursively so we can sample from a uniform distribution
 transform_probabilities([], []).
 transform_probabilities([P::B], [P::B]).
 transform_probabilities([P1::B1,P2::B2|B], L) :-
     TransfromedProb is P1 + P2,
-    transform_probabilities([TransfromedProb:B2|B], TempL),
+    transform_probabilities([TransfromedProb::B2|B], TempL),
     L = [P1::B1|TempL].
 
-0.5 :: q(a) <-- [].
-0.5 :: q(b) <-- [].
+% sampling(q(X)) ===> eher b
+% random testing: a: 5x, b: 72x
+
+0.1 :: q(a).
+0.9 :: q(b).
+0.3 :: p(x).
+
