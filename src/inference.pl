@@ -1,23 +1,30 @@
 :- op(1199,xfx,::).
 
 % base case 'Rule = true'
-inference(true, 1) :- !.
+% only with inference(true, Prob)
+inference(true, 1).
 
-% base case 'body of Rule = true', i.e. Rule atomic and in particular not compound
+% body of Rule === true, happens when Rule is atomic
+% (e.g. 0.7 :: q(a), so when asking for a fact -
+% in this case clause automatically sets the body to true)
+% or as a base case of both recursions
 inference(Rule, Prob) :-
+    % clause: find a head and its corresponding body and unify
     clause(Prob :: Rule, true).
 
+% head recursion
 inference((Goal1, Goal2), ProbRes) :-
     inference(Goal1, Prob1),
     inference(Goal2, Prob2),
-    ProbRes is Prob1*Prob2, !.
+    ProbRes is Prob1*Prob2.
 
+% head recursion
 inference((Goal1; Goal2), ProbRes) :-
     inference(Goal1, Prob1),
     inference(Goal2, Prob2),
-    ProbRes is (Prob1 + Prob2  - Prob1*Prob2), !.
+    ProbRes is (Prob1 + Prob2  - Prob1*Prob2).
 
-% case 'compound body, conjunction'
+% body recursion, compound
 inference(Rule, ProbRes) :-
     % body is not yet bound, we bind it here
     clause((PRet :: Rule), Body),
@@ -26,27 +33,27 @@ inference(Rule, ProbRes) :-
     inference(Goal2, Prob2),
     ProbRes is PRet*Prob1*Prob2.
 
-% case 'compound body, disjunction'
+% body recursion, compound
 inference(Rule, ProbRes) :-
     clause((PRet :: Rule), Body),
     Body = (Goal1; Goal2), 
     inference(Goal1, Prob1),
     inference(Goal2, Prob2),
-    % this recursion exactly corresponds to the inclusion-exclusion-principle!
+    % this recursion exactly corresponds to the inclusion-exclusion-principle
     ProbRes is PRet*(Prob1 + Prob2 - Prob1*Prob2).
 
-% case 'single predicate body'
+% body recursion, non-compound
 inference(Rule, ProbRes) :-
     clause((PRet :: Rule), Body),
-    ( Body = true
-    -> fail, !
-    % preventing compound case from unifying with this more general case
-    ; Body \= (Goal1, Goal2),
-        % preventing compound case from unifying with this more general case
-        Body \= (Goal1; Goal2),
-        Body = Goal,
-        inference(Goal, Prob),
-        ProbRes is PRet*Prob).
+
+    % preventing above cases to fire again
+    Body \= (Goal1, Goal2),
+    Body \= (Goal1; Goal2),
+    Body \= true,
+
+    % now our body is the new goal
+    inference(Body, Prob),
+    ProbRes is PRet*Prob.
 
 
 
