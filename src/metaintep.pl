@@ -11,6 +11,7 @@ inference(Rule, Prob) :-
 inference(Rule, ProbRes) :-
     % check: Rule not compound
     ( Rule \= (Goal1, Goal2), Rule \= (Goal1; Goal2)
+    % body is not yet bound, we bind it here
     -> clause((PRet :: Rule), Body),
         Body = (Goal1, Goal2), 
         inference(Goal1, Prob1),
@@ -70,6 +71,9 @@ rule_rec((Goal1; Goal2), ProbRes) :-
 0.7 :: u(X) :- q(X), r(X), p(X).
 0.3 :: u(X) :- q(X); r(X); p(X).
 
+% API:
+% inference(q(X), Prob).
+% ===> zeige die Whrschktn für alle Belegungen an
 0.2 :: q(a).
 0.1 :: q(b).
 0.7 :: q(c).
@@ -80,3 +84,13 @@ rule_rec((Goal1; Goal2), ProbRes) :-
 0.0 :: p(a).
 0.1 :: p(b).
 0.9 :: p(c).
+
+0.5 :: d(X, Y) :- p(X), q(Y).
+
+% want:
+% inference((d(X, Y), u(X)), Prob).
+% inference((d(X, Y); u(X)), Prob).
+% strategy: assert(1 :: neu(X, Y) :- d(X, Y), u(X) bzw ; u(X)), sampling(neu(...)), retract(neu).
+
+
+
