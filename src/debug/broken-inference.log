@@ -1,0 +1,115 @@
+[trace]  ?- inference_(z(X), P).
+   Call: (10) inference_(z(_14324), _14330) ? creep
+   Call: (11) collect_clauses(z(_14324), true, _14330) ? creep
+^  Call: (12) findall((_16480::z(_14324)), clause((_16480::z(_14324)), true), _16496) ? creep
+^  Exit: (12) findall((_16480::z(_14324)), user:clause((_16480::z(_14324)), true), [(0.1::z(a)), (0.9::z(b))]) ? creep
+^  Call: (12) solution_sequences:group_by(z(_14324), _16480, member((_16480::z(_14324)), [(0.1::z(a)), (0.9::z(b))]), _18240) ? creep
+   Call: (13) solution_sequences:ordered_term_variables(user:member((_16480::z(_14324)), [(0.1::z(a)), (0.9::z(b))]), _20544) ? creep
+   Call: (14) term_variables(user:member((_16480::z(_14324)), [(0.1::z(a)), (0.9::z(b))]), _21368) ? creep
+   Exit: (14) term_variables(user:member((_16480::z(_14324)), [(0.1::z(a)), (0.9::z(b))]), [_16480, _14324]) ? creep
+   Call: (14) sort([_16480, _14324], _20544) ? creep
+   Exit: (14) sort([_16480, _14324], [_14324, _16480]) ? creep
+   Exit: (13) solution_sequences:ordered_term_variables(user:member((_16480::z(_14324)), [(0.1::z(a)), (0.9::z(b))]), [_14324, _16480]) ? creep
+   Call: (13) solution_sequences:ordered_term_variables(z(_14324)+_16480, _25462) ? creep
+   Call: (14) term_variables(z(_14324)+_16480, _26286) ? creep
+   Exit: (14) term_variables(z(_14324)+_16480, [_14324, _16480]) ? creep
+   Call: (14) sort([_14324, _16480], _25462) ? creep
+   Exit: (14) sort([_14324, _16480], [_14324, _16480]) ? creep
+   Exit: (13) solution_sequences:ordered_term_variables(z(_14324)+_16480, [_14324, _16480]) ? creep
+   Call: (13) ordsets:ord_subtract([_18, _94], [_18, _94], _192) ? creep
+   Exit: (13) ordsets:ord_subtract([_18, _94], [_18, _94], []) ? creep
+^  Call: (13) bagof(_94, []^(user:member((_94::z(_18)), [(0.1::z(a)), (0.9::z(b))])), _154) ? creep
+^  Exit: (13) bagof(_94, solution_sequences:[]^(user:member((_94::z(a)), [(0.1::z(a)), (0.9::z(b))])), [0.1]) ? creep
+^  Exit: (12) solution_sequences:group_by(z(a), _94, user:member((_94::z(a)), [(0.1::z(a)), (0.9::z(b))]), [0.1]) ? creep
+   Call: (12) lists:sum_list([0.1], _20) ? creep
+   Exit: (12) lists:sum_list([0.1], 0.1) ? creep
+   Exit: (11) collect_clauses(z(a), true, 0.1) ? creep
+   Exit: (10) inference_(z(a), 0.1) ? creep
+X = a,
+P = 0.1 ;
+^  Redo: (13) bagof(_94, solution_sequences:[]^(user:member((_94::z(_18)), [(0.1::z(a)), (0.9::z(b))])), _154) ? creep
+^  Exit: (13) bagof(_94, solution_sequences:[]^(user:member((_94::z(b)), [(0.1::z(a)), (0.9::z(b))])), [0.9]) ? creep
+^  Exit: (12) solution_sequences:group_by(z(b), _94, user:member((_94::z(b)), [(0.1::z(a)), (0.9::z(b))]), [0.9]) ? creep
+   Call: (12) lists:sum_list([0.9], _20) ? creep
+   Exit: (12) lists:sum_list([0.9], 0.9) ? creep
+   Exit: (11) collect_clauses(z(b), true, 0.9) ? creep
+   Exit: (10) inference_(z(b), 0.9) ? creep
+X = b,
+P = 0.9 ;
+   Redo: (10) inference_(z(_18), _20) ? creep
+   Call: (11) collect_clauses(z(_18), _25828, _25830) ? creep
+^  Call: (12) findall((_26648::z(_18)), clause((_26648::z(_18)), _25828), _26664) ? creep
+^  Exit: (12) findall((_26648::z(_18)), user:clause((_26648::z(_18)), _25828), [(0.1::z(a)), (0.9::z(b))]) ? creep
+^  Call: (12) solution_sequences:group_by(z(_18), _26648, member((_26648::z(_18)), [(0.1::z(a)), (0.9::z(b))]), _28408) ? creep
+   Call: (13) solution_sequences:ordered_term_variables(user:member((_26648::z(_18)), [(0.1::z(a)), (0.9::z(b))]), _29252) ? creep
+   Call: (14) term_variables(user:member((_26648::z(_18)), [(0.1::z(a)), (0.9::z(b))]), _30076) ? creep
+   Exit: (14) term_variables(user:member((_26648::z(_18)), [(0.1::z(a)), (0.9::z(b))]), [_26648, _18]) ? creep
+   Call: (14) sort([_26648, _18], _29252) ? creep
+   Exit: (14) sort([_26648, _18], [_18, _26648]) ? creep
+   Exit: (13) solution_sequences:ordered_term_variables(user:member((_26648::z(_18)), [(0.1::z(a)), (0.9::z(b))]), [_18, _26648]) ? creep
+   Call: (13) solution_sequences:ordered_term_variables(z(_18)+_26648, _34170) ? creep
+   Call: (14) term_variables(z(_18)+_26648, _34994) ? creep
+   Exit: (14) term_variables(z(_18)+_26648, [_18, _26648]) ? creep
+   Call: (14) sort([_18, _26648], _34170) ? creep
+   Exit: (14) sort([_18, _26648], [_18, _26648]) ? creep
+   Exit: (13) solution_sequences:ordered_term_variables(z(_18)+_26648, [_18, _26648]) ? creep
+   Call: (13) ordsets:ord_subtract([_18, _26648], [_18, _26648], _39082) ? creep
+   Exit: (13) ordsets:ord_subtract([_18, _26648], [_18, _26648], []) ? creep
+^  Call: (13) bagof(_26648, []^(user:member((_26648::z(_18)), [(0.1::z(a)), (0.9::z(b))])), _28408) ? creep
+^  Exit: (13) bagof(_26648, solution_sequences:[]^(user:member((_26648::z(a)), [(0.1::z(a)), (0.9::z(b))])), [0.1]) ? creep
+^  Exit: (12) solution_sequences:group_by(z(a), _26648, user:member((_26648::z(a)), [(0.1::z(a)), (0.9::z(b))]), [0.1]) ? creep
+   Call: (12) lists:sum_list([0.1], _25830) ? creep
+   Exit: (12) lists:sum_list([0.1], 0.1) ? creep
+   Exit: (11) collect_clauses(z(a), _25828, 0.1) ? creep
+   Call: (11) _25828=(_45864, _45866) ? creep
+   Exit: (11) (_45864, _45866)=(_45864, _45866) ? creep
+   Call: (11) inference_(_45864, _47488) ? creep
+   Exit: (11) inference_(true, 1) ? creep
+   Call: (11) inference_(_45866, _49110) ? creep
+   Exit: (11) inference_(true, 1) ? creep
+   Call: (11) _20 is 0.1*1*1 ? creep
+   Exit: (11) 0.1 is 0.1*1*1 ? creep
+   Exit: (10) inference_(z(a), 0.1) ? creep
+X = a,
+P = 0.1 ;
+   Redo: (11) inference_(_45866, _49110) ? creep
+   Call: (12) collect_clauses(_45866, true, _49110) ? creep
+^  Call: (13) findall((_56716::_45866), clause((_56716::_45866), true), _56732) ? creep
+^  Exit: (13) findall((_56716::_45866), user:clause((_56716::_45866), true), [(0.2::q(a)), (0.1::q(b)), (0.4::q(c)), (0.3::r(a)), (0.9::r(b)), (0.0::p(a)), (0.1::p(...)), (... :: ...)|...]) ? creep
+^  Call: (13) solution_sequences:group_by(_45866, _56716, member((_56716::_45866), [(0.2::q(a)), (0.1::q(b)), (0.4::q(c)), (0.3::r(a)), (0.9::r(...)), (... :: ...)|...]), _59204) ? creep
+   Call: (14) solution_sequences:ordered_term_variables(user:member((_56716::_45866), [(0.2::q(a)), (0.1::q(b)), (0.4::q(c)), (0.3::r(...)), (... :: ...)|...]), _60048) ? creep
+   Call: (15) term_variables(user:member((_56716::_45866), [(0.2::q(a)), (0.1::q(b)), (0.4::q(c)), (0.3::r(a)), (0.9::r(...)), (... :: ...)|...]), _60872) ? creep
+   Exit: (15) term_variables(user:member((_56716::_45866), [(0.2::q(a)), (0.1::q(b)), (0.4::q(c)), (0.3::r(a)), (0.9::r(...)), (... :: ...)|...]), [_56716, _45866]) ? creep
+   Call: (15) sort([_56716, _45866], _60048) ? creep
+   Exit: (15) sort([_56716, _45866], [_45866, _56716]) ? creep
+   Exit: (14) solution_sequences:ordered_term_variables(user:member((_56716::_45866), [(0.2::q(a)), (0.1::q(b)), (0.4::q(c)), (0.3::r(...)), (... :: ...)|...]), [_45866, _56716]) ? creep
+   Call: (14) solution_sequences:ordered_term_variables(_45866+_56716, _64966) ? creep
+   Call: (15) term_variables(_45866+_56716, _65790) ? creep
+   Exit: (15) term_variables(_45866+_56716, [_45866, _56716]) ? creep
+   Call: (15) sort([_45866, _56716], _64966) ? creep
+   Exit: (15) sort([_45866, _56716], [_45866, _56716]) ? creep
+   Exit: (14) solution_sequences:ordered_term_variables(_45866+_56716, [_45866, _56716]) ? creep
+   Call: (14) ordsets:ord_subtract([_45866, _56716], [_45866, _56716], _69878) ? creep
+   Exit: (14) ordsets:ord_subtract([_45866, _56716], [_45866, _56716], []) ? creep
+^  Call: (14) bagof(_56716, []^(user:member((_56716::_45866), [(0.2::q(a)), (0.1::q(b)), (0.4::q(c)), (0.3::r(...)), (... :: ...)|...])), _59204) ? creep
+^  Exit: (14) bagof(_56716, solution_sequences:[]^(user:member((_56716::fact), [(0.2::q(a)), (0.1::q(b)), (0.4::q(...)), (... :: ...)|...])), [1/2]) ? creep
+^  Exit: (13) solution_sequences:group_by(fact, _56716, user:member((_56716::fact), [(0.2::q(a)), (0.1::q(b)), (0.4::q(c)), (0.3::r(...)), (... :: ...)|...]), [1/2]) ? creep
+   Call: (13) lists:sum_list([1/2], _49110) ? creep
+   Exit: (13) lists:sum_list([1/2], 0.5) ? creep
+   Exit: (12) collect_clauses(fact, true, 0.5) ? creep
+   Exit: (11) inference_(fact, 0.5) ? creep
+   Call: (11) _20 is 0.1*1*0.5 ? creep
+   Exit: (11) 0.05 is 0.1*1*0.5 ? creep
+   Exit: (10) inference_(z(a), 0.05) ? creep
+X = a,
+P = 0.05 ;
+^  Redo: (14) bagof(_56716, solution_sequences:[]^(user:member((_56716::_45866), [(0.2::q(a)), (0.1::q(b)), (0.4::q(...)), (... :: ...)|...])), _59204) ? creep
+^  Exit: (14) bagof(_56716, solution_sequences:[]^(user:member((_56716::fact1), [(0.2::q(a)), (0.1::q(b)), (0.4::q(...)), (... :: ...)|...])), [1]) ? creep
+^  Exit: (13) solution_sequences:group_by(fact1, _56716, user:member((_56716::fact1), [(0.2::q(a)), (0.1::q(b)), (0.4::q(c)), (0.3::r(...)), (... :: ...)|...]), [1]) ? creep
+   Call: (13) lists:sum_list([1], _49110) ? creep
+   Exit: (13) lists:sum_list([1], 1) ? creep
+   Exit: (12) collect_clauses(fact1, true, 1) ? creep
+   Exit: (11) inference_(fact1, 1) ? creep
+   Call: (11) _20 is 0.1*1*1 ? creep
+   Exit: (11) 0.1 is 0.1*1*1 ? creep
+   Exit: (10) inference_(z(a), 0.1) ?
