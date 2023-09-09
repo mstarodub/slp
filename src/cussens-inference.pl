@@ -24,5 +24,33 @@ p(G, ArgList, Result) :-
     z(G, Denominator),
     Result is Numerator / Denominator.
 
+% head recursion 
+z((G1 ,G2), WeightRes) :-
+    z(G1, Weight1),
+    z(G2, Weight2),
+    WeightRes is Weight1*Weight2.
+
+% body recursion, compound
 z(G, Weight) :-
-    ...
+    findall([Prob, G, Body], clause((Prob :: G), Body), UnifSet),
+    [UnifClause|UnifSetTail] = UnifSet,
+    nth0(0, UnifClause, ClauseProb),
+    nth0(2, UnifClause, ClauseBody),
+    % only non-variable bodies won't cause infinite recursion
+    nonvar(ClauseBody),
+    ClauseBody = (Body1, Body2),
+    z(Body1, W1),
+    z(Body2, W2),
+    Weight is ClauseProb * W1 * W2.
+
+% body recursion, non-compound
+z(G, Weight) :-
+    findall([Prob, G, Body], clause((Prob :: G), Body), UnifSet),
+    [UnifClause|UnifSetTail] = UnifSet,
+    nth0(0, UnifClause, ClauseProb),
+    nth0(2, UnifClause, ClauseBody),
+    % only non-variable bodies won't cause infinite recursion
+    ClauseBody \= (Body1, Body2),
+    % TODO: maybe exclude true as well? / base case
+    z(ClauseBody, W),
+    Weight is ClauseProb * W.
