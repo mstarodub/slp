@@ -24,33 +24,39 @@ p(G, ArgList, Result) :-
     z(G, Denominator),
     Result is Numerator / Denominator.
 
-% head recursion 
-z((G1 ,G2), WeightRes) :-
-    z(G1, Weight1),
-    z(G2, Weight2),
-    WeightRes is Weight1*Weight2.
+aux(_, [], 0).
 
-% body recursion, compound
-z(G, Weight) :-
-    findall([Prob, G, Body], clause((Prob :: G), Body), UnifSet),
-    [UnifClause|UnifSetTail] = UnifSet,
+aux(RemainingGoal, [UnifClause|UnifSetTail], Akk) :-
     nth0(0, UnifClause, ClauseProb),
     nth0(2, UnifClause, ClauseBody),
-    % only non-variable bodies won't cause infinite recursion
-    nonvar(ClauseBody),
-    ClauseBody = (Body1, Body2),
-    z(Body1, W1),
-    z(Body2, W2),
-    Weight is ClauseProb * W1 * W2.
+    z((ClauseBody, RemainingGoal), W),
+    aux(RemainingGoal, UnifSetTail, Akknew),
+    Akk is Akknew + W*ClauseProb.
 
-% body recursion, non-compound
+% base case
+z(true, 1).
+
+% compound head
+z((G1, G2), Weight) :-
+    % if we share no variables, compute by decomposing
+    % z(G1, Weight1),
+    % z(G2, Weight2),
+    % Weight is Weight1*Weight2,
+
+    % assume we share some variables:
+    bagof([Prob, G1, Body], clause((Prob :: G1), Body), UnifSet),
+    aux(G2, UnifSet, Weight).
+
+% non-compound head
 z(G, Weight) :-
-    findall([Prob, G, Body], clause((Prob :: G), Body), UnifSet),
-    [UnifClause|UnifSetTail] = UnifSet,
-    nth0(0, UnifClause, ClauseProb),
-    nth0(2, UnifClause, ClauseBody),
-    % only non-variable bodies won't cause infinite recursion
-    ClauseBody \= (Body1, Body2),
-    % TODO: maybe exclude true as well? / base case
-    z(ClauseBody, W),
-    Weight is ClauseProb * W.
+    G \= (_, _),
+    G \= true,
+    bagof([Prob, G, Body], clause((Prob :: G), Body), UnifSet),
+    aux(true, UnifSet, Weight).
+
+
+% TESTS
+0.6 :: p(a).
+0.4 :: p(b).
+0.3 :: q(a).
+0.7 :: q(b).
