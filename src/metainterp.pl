@@ -40,7 +40,8 @@ inference_((Goal1; Goal2), ProbRes) :-
 inference_(Rule, ProbRes) :-
     % body is not yet bound, we bind it here
     collect_clauses(Rule, Body, PRet),
-    Body = (Goal1, Goal2), 
+    nonvar(Body),
+    Body = (Goal1, Goal2),
     inference_(Goal1, Prob1),
     inference_(Goal2, Prob2),
     ProbRes is PRet*Prob1*Prob2.
@@ -48,7 +49,8 @@ inference_(Rule, ProbRes) :-
 % body recursion, compound
 inference_(Rule, ProbRes) :-
     collect_clauses(Rule, Body, PRet),
-    Body = (Goal1; Goal2), 
+    nonvar(Body),
+    Body = (Goal1; Goal2),
     inference_(Goal1, Prob1),
     inference_(Goal2, Prob2),
     % this recursion exactly corresponds to the inclusion-exclusion-principle
@@ -143,6 +145,7 @@ pay_entrance([Player,Banker],[Player-4,Banker+4]).
 dice_reward([Player,Banker],[Player+D,Banker-D]) :- roll_dice(D).
 
 1/6::roll_dice(1).
+1/6::roll_dice(1).
 1/6::roll_dice(2).
 1/6::roll_dice(3).
 1/6::roll_dice(4).
@@ -230,5 +233,11 @@ dice_reward([Player,Banker],[Player+D,Banker-D]) :- roll_dice(D).
 1/5 :: gl22 :- fail.
 1/5 :: gl22 :- fail.
 
-
+% neuer randfall (und der grund wieso wir bei cussen's exact inference algorithmus den nenner brauchen / wieso er nicht immer 1 ist)
+1/2 :: s(a) :- p(a).
+1/2 :: s(a) :- q(a).
+0.6 :: p(a).
+0.4 :: p(b).
+0.3 :: q(a).
+0.7 :: q(b).
 
