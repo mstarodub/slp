@@ -24,17 +24,32 @@ p(G, ArgList, Result) :-
     z(G, Denominator),
     Result is Numerator / Denominator.
 
-aux(_, [], 0).
 
-aux(RemainingGoal, [UnifClause|UnifSetTail], Akk) :-
+aux(_, _, [], 0).
+aux(CurrentGoal, RemainingGoal, [UnifClause|UnifSetTail], Akk) :-
     nth0(0, UnifClause, ClauseProb),
+    nth0(1, UnifClause, ClauseHead),
     nth0(2, UnifClause, ClauseBody),
+    unifiable(ClauseHead, CurrentGoal, UnifBag),
+    unify_helper(RemainingGoal, UnifBag),
     z((ClauseBody, RemainingGoal), W),
-    aux(RemainingGoal, UnifSetTail, Akknew),
+    aux(CurrentGoal, RemainingGoal, UnifSetTail, Akknew),
     Akk is Akknew + W*ClauseProb.
+
+
+
+% the List in the form [X=a, Y=b, ...]
+unify_helper(_, []).
+unify_helper(Term, [L=R|BT]) :-
+    findall(Term, L=R, [Term]),
+    unify_helper(Term, BT).
+
 
 % base case
 z(true, 1).
+
+% compound base case
+z((true, G), Weight) :- z(G, Weight).
 
 % compound head
 z((G1, G2), Weight) :-
@@ -44,15 +59,15 @@ z((G1, G2), Weight) :-
     % Weight is Weight1*Weight2,
 
     % assume we share some variables:
-    bagof([Prob, G1, Body], clause((Prob :: G1), Body), UnifSet),
-    aux(G2, UnifSet, Weight).
+    findall([Prob, G1, Body], clause((Prob :: G1), Body), UnifSet),
+    aux(G1, G2, UnifSet, Weight).
 
 % non-compound head
 z(G, Weight) :-
     G \= (_, _),
     G \= true,
-    bagof([Prob, G, Body], clause((Prob :: G), Body), UnifSet),
-    aux(true, UnifSet, Weight).
+    findall([Prob, G, Body], clause((Prob :: G), Body), UnifSet),
+    aux(G, true, UnifSet, Weight).
 
 
 % TESTS

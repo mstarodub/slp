@@ -1,0 +1,134 @@
+[trace]  ?- z((p(X), q(X)), W).
+   Call: (10) z((p(_19628), q(_19628)), _19644) ? creep
+^  Call: (11) findall([_21004, p(_19628), _21016], clause((_21004::p(_19628)), _21016), _21032) ? creep
+^  Exit: (11) findall([_21004, p(_19628), _21016], user:clause((_21004::p(_19628)), _21016), [[0.6, p(a), true], [0.4, p(b), true]]) ? creep
+   Call: (11) aux(p(_19628), q(_19628), [[0.6, p(a), true], [0.4, p(b), true]], _19644) ? creep
+   Call: (12) lists:nth0(0, [0.6, p(a), true], _23606) ? creep
+   Exit: (12) lists:nth0(0, [0.6, p(a), true], 0.6) ? creep
+   Call: (12) lists:nth0(1, [0.6, p(a), true], _25264) ? creep
+   Exit: (12) lists:nth0(1, [0.6, p(a), true], p(a)) ? creep
+   Call: (12) lists:nth0(2, [0.6, p(a), true], _26922) ? creep
+   Exit: (12) lists:nth0(2, [0.6, p(a), true], true) ? creep
+   Call: (12) unifiable(p(a), p(_19628), _28580) ? creep
+   Exit: (12) unifiable(p(a), p(_19628), [_19628=a]) ? creep
+   Call: (12) unify_helper(q(_19628), [_19628=a]) ? creep
+^  Call: (13) findall(q(_19628), _19628=a, [q(_19628)]) ? creep
+^  Exit: (13) findall(q(a), user:(a=a), [q(a)]) ? creep
+   Call: (13) unify_helper(q(a), []) ? creep
+   Exit: (13) unify_helper(q(a), []) ? creep
+   Exit: (12) unify_helper(q(a), [a=a]) ? creep
+   Call: (12) z((true, q(a)), _35178) ? creep
+   Call: (13) z(q(a), _35178) ? creep
+   Call: (14) q(a)\=(_36802, _36804) ? creep
+   Exit: (14) q(a)\=(_36802, _36804) ? creep
+   Call: (14) q(a)\=true ? creep
+   Exit: (14) q(a)\=true ? creep
+^  Call: (14) findall([_40048, q(a), _40060], clause((_40048::q(a)), _40060), _40076) ? creep
+^  Exit: (14) findall([_40048, q(a), _40060], user:clause((_40048::q(a)), _40060), [[0.3, q(a), true]]) ? creep
+   Call: (14) aux(q(a), true, [[0.3, q(a), true]], _35178) ? creep
+   Call: (15) lists:nth0(0, [0.3, q(a), true], _42616) ? creep
+   Exit: (15) lists:nth0(0, [0.3, q(a), true], 0.3) ? creep
+   Call: (15) lists:nth0(1, [0.3, q(a), true], _44274) ? creep
+   Exit: (15) lists:nth0(1, [0.3, q(a), true], q(a)) ? creep
+   Call: (15) lists:nth0(2, [0.3, q(a), true], _45932) ? creep
+   Exit: (15) lists:nth0(2, [0.3, q(a), true], true) ? creep
+   Call: (15) unifiable(q(a), q(a), _47590) ? creep
+   Exit: (15) unifiable(q(a), q(a), []) ? creep
+   Call: (15) unify_helper(true, []) ? creep
+   Exit: (15) unify_helper(true, []) ? creep
+   Call: (15) z((true, true), _50846) ? creep
+   Call: (16) z(true, _50846) ? creep
+   Exit: (16) z(true, 1) ? creep
+   Exit: (15) z((true, true), 1) ? creep
+   Call: (15) aux(q(a), true, [], _54088) ? creep
+   Exit: (15) aux(q(a), true, [], 0) ? creep
+   Call: (15) _35178 is 0+1*0.3 ? creep
+   Exit: (15) 0.3 is 0+1*0.3 ? creep
+   Exit: (14) aux(q(a), true, [[0.3, q(a), true]], 0.3) ? creep
+   Exit: (13) z(q(a), 0.3) ? creep
+   Exit: (12) z((true, q(a)), 0.3) ? creep
+   Call: (12) aux(p(a), q(a), [[0.4, p(b), true]], _59802) ? creep
+   Call: (13) lists:nth0(0, [0.4, p(b), true], _60622) ? creep
+   Exit: (13) lists:nth0(0, [0.4, p(b), true], 0.4) ? creep
+   Call: (13) lists:nth0(1, [0.4, p(b), true], _62280) ? creep
+   Exit: (13) lists:nth0(1, [0.4, p(b), true], p(b)) ? creep
+   Call: (13) lists:nth0(2, [0.4, p(b), true], _63938) ? creep
+   Exit: (13) lists:nth0(2, [0.4, p(b), true], true) ? creep
+   Call: (13) unifiable(p(b), p(a), _754) ? creep
+   Fail: (13) unifiable(p(b), p(a), _754) ? creep
+   Fail: (12) aux(p(a), q(a), [[0.4, p(b), true]], _270) ? creep
+   Redo: (15) aux(q(a), true, [], _262) ? creep
+   Fail: (15) aux(q(a), true, [], _262) ? creep
+   Redo: (16) z(true, _260) ? creep
+   Call: (17) true\=(_5650, _5652) ? creep
+   Exit: (17) true\=(_5650, _5652) ? creep
+   Call: (17) true\=true ? creep
+   Fail: (17) true\=true ? creep
+   Fail: (16) z(true, _260) ? creep
+   Redo: (15) z((true, true), _260) ? creep
+^  Call: (16) findall([_10516, true, _10528], clause((_10516::true), _10528), _10544) ? creep
+^  Exit: (16) findall([_10516, true, _10528], user:clause((_10516::true), _10528), []) ? creep
+   Call: (16) aux(true, true, [], _260) ? creep
+   Exit: (16) aux(true, true, [], 0) ? creep
+   Exit: (15) z((true, true), 0) ? creep
+   Call: (15) aux(q(a), true, [], _14678) ? creep
+   Exit: (15) aux(q(a), true, [], 0) ? creep
+   Call: (15) _204 is 0+0*0.3 ? creep
+   Exit: (15) 0.0 is 0+0*0.3 ? creep
+   Exit: (14) aux(q(a), true, [[0.3, q(a), true]], 0.0) ? creep
+   Exit: (13) z(q(a), 0.0) ? creep
+   Exit: (12) z((true, q(a)), 0.0) ? creep
+   Call: (12) aux(p(a), q(a), [[0.4, p(b), true]], _20392) ? creep
+   Call: (13) lists:nth0(0, [0.4, p(b), true], _21212) ? creep
+   Exit: (13) lists:nth0(0, [0.4, p(b), true], 0.4) ? creep
+   Call: (13) lists:nth0(1, [0.4, p(b), true], _22870) ? creep
+   Exit: (13) lists:nth0(1, [0.4, p(b), true], p(b)) ? creep
+   Call: (13) lists:nth0(2, [0.4, p(b), true], _24528) ? creep
+   Exit: (13) lists:nth0(2, [0.4, p(b), true], true) ? creep
+   Call: (13) unifiable(p(b), p(a), _26186) ? creep
+   Fail: (13) unifiable(p(b), p(a), _26186) ? creep
+   Fail: (12) aux(p(a), q(a), [[0.4, p(b), true]], _20392) ? creep
+   Redo: (15) aux(q(a), true, [], _14678) ? creep
+   Fail: (15) aux(q(a), true, [], _14678) ? creep
+   Redo: (16) aux(true, true, [], _260) ? creep
+   Fail: (16) aux(true, true, [], _260) ? creep
+   Redo: (15) z((true, true), _260) ? creep
+   Call: (16) (true, true)\=(_32718, _32720) ? creep
+   Fail: (16) (true, true)\=(_32718, _32720) ? creep
+   Fail: (15) z((true, true), _260) ? creep
+   Redo: (15) unify_helper(true, []) ? creep
+   Fail: (15) unify_helper(true, []) ? creep
+   Fail: (14) aux(q(a), true, [[0.3, q(a), true]], _204) ? creep
+   Fail: (13) z(q(a), _204) ? creep
+   Redo: (12) z((true, q(a)), _204) ? creep
+^  Call: (13) findall([_39212, true, _39224], clause((_39212::true), _39224), _39240) ? creep
+^  Exit: (13) findall([_39212, true, _39224], user:clause((_39212::true), _39224), []) ? creep
+   Call: (13) aux(true, q(a), [], _204) ? creep
+   Exit: (13) aux(true, q(a), [], 0) ? creep
+   Exit: (12) z((true, q(a)), 0) ? creep
+   Call: (12) aux(p(a), q(a), [[0.4, p(b), true]], _43374) ? creep
+   Call: (13) lists:nth0(0, [0.4, p(b), true], _44194) ? creep
+   Exit: (13) lists:nth0(0, [0.4, p(b), true], 0.4) ? creep
+   Call: (13) lists:nth0(1, [0.4, p(b), true], _45852) ? creep
+   Exit: (13) lists:nth0(1, [0.4, p(b), true], p(b)) ? creep
+   Call: (13) lists:nth0(2, [0.4, p(b), true], _47510) ? creep
+   Exit: (13) lists:nth0(2, [0.4, p(b), true], true) ? creep
+   Call: (13) unifiable(p(b), p(a), _49168) ? creep
+   Fail: (13) unifiable(p(b), p(a), _49168) ? creep
+   Fail: (12) aux(p(a), q(a), [[0.4, p(b), true]], _43374) ? creep
+   Redo: (13) aux(true, q(a), [], _204) ? creep
+   Fail: (13) aux(true, q(a), [], _204) ? creep
+   Redo: (12) z((true, q(a)), _204) ? creep
+   Call: (13) (true, q(a))\=(_54064, _54066) ? creep
+   Fail: (13) (true, q(a))\=(_54064, _54066) ? creep
+   Fail: (12) z((true, q(a)), _204) ? creep
+   Redo: (13) unify_helper(q(a), []) ? creep
+   Fail: (13) unify_helper(q(a), []) ? creep
+   Fail: (12) unify_helper(q(_18), [_18=a]) ? creep
+   Fail: (11) aux(p(_18), q(_18), [[0.6, p(a), true], [0.4, p(b), true]], _20) ? creep
+   Redo: (10) z((p(_18), q(_18)), _20) ? creep
+   Call: (11) (p(_18), q(_18))\=(_60558, _60560) ? creep
+   Fail: (11) (p(_18), q(_18))\=(_60558, _60560) ? creep
+   Fail: (10) z((p(_18), q(_18)), _20) ? creep
+false.
+
