@@ -26,29 +26,34 @@ p(G, ArgList, Result) :-
 
 
 aux(_, _, [], 0).
+
 aux(CurrentGoal, RemainingGoal, [UnifClause|UnifSetTail], Akk) :-
+    % aux recursion requires all subgoals to be as unbound as possible
+    % free variable relations must be preserved, e.g. p(X), q(X) must become p(Y), q(Y)
+    copy_term((CurrentGoal,RemainingGoal), (CurrentGoalFree,RemainingGoalFree)),
+
     nth0(0, UnifClause, ClauseProb),
     nth0(1, UnifClause, ClauseHead),
     nth0(2, UnifClause, ClauseBody),
     unifiable(ClauseHead, CurrentGoal, UnifBag),
-    unify_helper(RemainingGoal, UnifBag),
-    z((ClauseBody, RemainingGoal), W),
-    aux(CurrentGoal, RemainingGoal, UnifSetTail, Akknew),
-    Akk is Akknew + W*ClauseProb.
+    unify_helper(RemainingGoal, UnifBag), % how should unify_helper behave if variables in UnifBag have more unification options?
+    z((ClauseBody, RemainingGoal), Weight),
+    aux(CurrentGoalFree, RemainingGoalFree, UnifSetTail, Akknew),
+    Akk is ClauseProb*Weight + Akknew.
 
 
-
+% propagates bindings of CurrentGoal to RemainingGoal
 % the List in the form [X=a, Y=b, ...]
 unify_helper(_, []).
-unify_helper(Term, [L=R|BT]) :-
-    findall(Term, L=R, [Term]),
-    unify_helper(Term, BT).
+unify_helper(Term, [Var=Binding|BagTail]) :-
+    findall(Term, Var=Binding, [Term]),
+    unify_helper(Term, BagTail).
 
 
 % base case
 z(true, 1).
 
-% compound base case
+% compound base case; simplifying conjunction
 z((true, G), Weight) :- z(G, Weight).
 
 % compound head
