@@ -6,23 +6,17 @@
 %   normalized SLP (all clauses forming a predicate add up to 1)
 %   pure SLP (no non-prob. clauses)
 
-% invariant helper
-err(X) :-
-    % TODO: print an error message
-    write(user_error, "broken invariant"),
-    halt.
-
 % assumptions:
 %   G is the goal with only free variables
 %   G is non-compound; TODO: assert user input as clause and retract later
 %   ArgList contains the instantiated parameters for G
-p(G, ArgList, Result) :-
+p(G, ArgList, RoundedResult) :-
     functor(G, Functor, Arity),
-    ( length(ArgList, Len), Len \= Arity -> err(Len) ; true ),
     GInstantiated =.. [Functor|ArgList],
     z(GInstantiated, Numerator),
     z(G, Denominator),
-    Result is Numerator / Denominator.
+    Result is Numerator / Denominator,
+    round_third(Result, RoundedResult).
 
 % reimplementation of maplist for singleton list [Singleton] applied to arbitrarily long list [Elem|Tail]
 map_singleton(_, _, [], []).
@@ -32,7 +26,8 @@ map_singleton(Goal, [Singleton], [Elem|Tail], [ResElem|ResTail]) :-
 
 % propagates bindings of CurrentGoal to RemainingGoal
 % the List in the form [X=a, Y=b, ...]
-unify_helper(_, []) :- !.
+% https://stackoverflow.com/a/64722773
+unify_helper(_, []).
 unify_helper(Term, [Var=Binding|BagTail]) :-
     findall(Term, Var=Binding, [Term]),
     unify_helper(Term, BagTail).
@@ -42,9 +37,8 @@ round_third(Float, RoundedFloat) :-
     RoundedScaled is round(Float*1000),
     RoundedFloat is RoundedScaled/1000. 
 
-
 unifSet_rec(_, _, [], 0) :- !. % base case cut: prevents further backtracking and final output "false"
-unifSet_rec(CurrentGoal, RemainingGoal, [UnifClause|UnifSetTail], RoundedAkk) :-
+unifSet_rec(CurrentGoal, RemainingGoal, [UnifClause|UnifSetTail], Akk) :-
     % unifSet_rec recursion requires all subgoals to be as unbound as possible
     % free variable relations must be preserved, e.g. p(X), q(X) must become p(Y), q(Y)
     copy_term((CurrentGoal,RemainingGoal), (CurrentGoalFree,RemainingGoalFree)),
@@ -56,11 +50,10 @@ unifSet_rec(CurrentGoal, RemainingGoal, [UnifClause|UnifSetTail], RoundedAkk) :-
     unify_helper(RemainingGoal, UnifBag), % how should unify_helper behave if variables in UnifBag have more unification options?
     z((ClauseBody, RemainingGoal), Weight),
     unifSet_rec(CurrentGoalFree, RemainingGoalFree, UnifSetTail, Akknew),
-    Akk is ClauseProb*Weight + Akknew,
-    round_third(Akk, RoundedAkk).
+    Akk is ClauseProb*Weight + Akknew.
 
 substitSet_rec(_, _, [], 0) :- !. % base case cut: prevents further backtracking and final output "false"
-substitSet_rec(CurrentGoal, RemainingGoal, [Substitutions|PairedVarBindingsTail], RoundedAkk) :-
+substitSet_rec(CurrentGoal, RemainingGoal, [Substitutions|PairedVarBindingsTail], Akk) :-
     % substitSet_rec recursion requires all subgoals to be as unbound as possible
     % PairedVarBindings must also remain unbound, e.g. old: [X=a], [X=b] becomes [Y=b] instead of [a=b]
     % free variable relations must be preserved, e.g. p(X), q(X) must become p(Y), q(Y)
@@ -71,12 +64,10 @@ substitSet_rec(CurrentGoal, RemainingGoal, [Substitutions|PairedVarBindingsTail]
     z(CurrentGoal, Weight1),
     z(RemainingGoal, Weight2),
     substitSet_rec(CurrentGoalFree, RemainingGoalFree, PairedVarBindingsTailFree, Akknew),
-    Akk is Weight1*Weight2 + Akknew,
-    round_third(Akk, RoundedAkk).
-
+    Akk is Weight1*Weight2 + Akknew.
 
 % base case
-z(true, 1) :- !. % base case cut: prevents further backtracking and final output "false"
+z(true, 1).
 
 % compound base cases; simplifying conjunction
 % base case cuts: prevent further backtracking and final output "false"
