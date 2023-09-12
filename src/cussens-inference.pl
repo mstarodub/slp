@@ -19,24 +19,16 @@ p(G, ArgList, RoundedResult) :-
     round_third(Result, RoundedResult).
 
 % reimplementation of maplist for singleton list [Singleton] applied to arbitrarily long list [Elem|Tail]
-map_singleton(_, _, [], []).
+map_singleton(_, _, [], []) :- !.
 map_singleton(Goal, [Singleton], [Elem|Tail], [ResElem|ResTail]) :-
     call(Goal, Singleton, Elem, ResElem),
     map_singleton(Goal, [Singleton], Tail, ResTail).
 
 
-% removes non grounded terms from given list
-remove_nongrounds([], []).
-remove_nongrounds([Head|Tail], [Head|ResTail]) :-
-    ground(Head),
-    remove_nongrounds(Tail, ResTail).
-remove_nongrounds([_|Tail], ResTail) :-
-    remove_nongrounds(Tail, ResTail).
-
 % propagates bindings of CurrentGoal to RemainingGoal
 % the List in the form [X=a, Y=b, ...]
 % https://stackoverflow.com/a/64722773
-unify_helper(_, []).
+unify_helper(_, []) :- !.
 unify_helper(Term, [Var=Binding|BagTail]) :-
     findall(Term, Var=Binding, [Term]),
     unify_helper(Term, BagTail).
@@ -95,10 +87,9 @@ z((G1, G2), Weight) :-
         z(G2, Weight2),
         Weight is Weight1*Weight2
     % shared variables --> computation of splitting substitution set
-    ;   findall(SharedVars, clause((_ :: G1), _), SubstitList),
-        list_to_set(SubstitList, SubstitSetCandidates),
-        % non ground terms do not actually make goals disjunct --> therefore removed
-        remove_nongrounds(SubstitSetCandidates, SubstitSet),
+    ;   % only ground terms make goals disjunct
+        findall(SharedVars, (clause((_ :: G1), _), ground(SharedVars)), SubstitList),
+        list_to_set(SubstitList, SubstitSet),
         map_singleton(unifiable, [SharedVars], SubstitSet, PairedVarBindings),
         substitSet_rec(G1, G2, PairedVarBindings, Weight)        
     ).
