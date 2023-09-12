@@ -24,6 +24,15 @@ map_singleton(Goal, [Singleton], [Elem|Tail], [ResElem|ResTail]) :-
     call(Goal, Singleton, Elem, ResElem),
     map_singleton(Goal, [Singleton], Tail, ResTail).
 
+
+% removes non grounded terms from given list
+remove_nongrounds([], []).
+remove_nongrounds([Head|Tail], [Head|ResTail]) :-
+    ground(Head),
+    remove_nongrounds(Tail, ResTail).
+remove_nongrounds([_|Tail], ResTail) :-
+    remove_nongrounds(Tail, ResTail).
+
 % propagates bindings of CurrentGoal to RemainingGoal
 % the List in the form [X=a, Y=b, ...]
 % https://stackoverflow.com/a/64722773
@@ -41,7 +50,7 @@ unifSet_rec(_, _, [], 0) :- !. % base case cut: prevents further backtracking an
 unifSet_rec(CurrentGoal, RemainingGoal, [UnifClause|UnifSetTail], Akk) :-
     % unifSet_rec recursion requires all subgoals to be as unbound as possible
     % free variable relations must be preserved, e.g. p(X), q(X) must become p(Y), q(Y)
-    copy_term((CurrentGoal,RemainingGoal), (CurrentGoalFree,RemainingGoalFree)),
+    copy_term((CurrentGoal,RemainingGoal, UnifSetTail), (CurrentGoalFree,RemainingGoalFree, UnifSetTailFree)),
 
     nth0(0, UnifClause, ClauseProb),
     nth0(1, UnifClause, ClauseHead),
@@ -49,7 +58,7 @@ unifSet_rec(CurrentGoal, RemainingGoal, [UnifClause|UnifSetTail], Akk) :-
     unifiable(ClauseHead, CurrentGoal, UnifBag),
     unify_helper(RemainingGoal, UnifBag), % how should unify_helper behave if variables in UnifBag have more unification options?
     z((ClauseBody, RemainingGoal), Weight),
-    unifSet_rec(CurrentGoalFree, RemainingGoalFree, UnifSetTail, Akknew),
+    unifSet_rec(CurrentGoalFree, RemainingGoalFree, UnifSetTailFree, Akknew),
     Akk is ClauseProb*Weight + Akknew.
 
 substitSet_rec(_, _, [], 0) :- !. % base case cut: prevents further backtracking and final output "false"
@@ -87,7 +96,9 @@ z((G1, G2), Weight) :-
         Weight is Weight1*Weight2
     % shared variables --> computation of splitting substitution set
     ;   findall(SharedVars, clause((_ :: G1), _), SubstitList),
-        list_to_set(SubstitList, SubstitSet),
+        list_to_set(SubstitList, SubstitSetCandidates),
+        % non ground terms do not actually make goals disjunct --> therefore removed
+        remove_nongrounds(SubstitSetCandidates, SubstitSet),
         map_singleton(unifiable, [SharedVars], SubstitSet, PairedVarBindings),
         substitSet_rec(G1, G2, PairedVarBindings, Weight)        
     ).
@@ -110,6 +121,7 @@ z(G, Weight) :-
 
 0.7 :: s(X, b) :- q(X).
 0.1 :: s(a, c).
-0.2 :: s(d, b).
+0.2 :: s(b, b).
 0.2 :: r(b, Z) :- p(Z).
 0.8 :: r(a, b).
+
