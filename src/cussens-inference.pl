@@ -73,12 +73,6 @@ p(G, RoundedResult) :-
 
 % --- WIP End ---
 
-% reimplementation of maplist for singleton list [Singleton] applied to arbitrarily long list [Elem|Tail]
-map_singleton(_, _, [], []) :- !.
-map_singleton(Goal, [Singleton], [Elem|Tail], [ResElem|ResTail]) :-
-    call(Goal, Singleton, Elem, ResElem),
-    map_singleton(Goal, [Singleton], Tail, ResTail).
-
 % propagates bindings of CurrentGoal to RemainingGoal
 % the List in the form [X=a, Y=b, ...]
 % https://stackoverflow.com/a/64722773
@@ -138,7 +132,6 @@ z((true, G), Weight, Depth) :- z(G, Weight, Depth), !.
 % compound head
 z((G1, G2), Weight, Depth) :-
     G1 \= true, % mutual exclusivity of goals
-
     % marginal inference --> standard not optimised z computation (with nonvar Depth)
     ( nonvar(Depth) 
     ->  findall([Prob, G1, Body], clause((Prob :: G1), Body), UnifSet),
@@ -155,8 +148,7 @@ z((G1, G2), Weight, Depth) :-
         ;   % only ground terms make goals disjunct
             findall(SharedVars, (clause((_ :: G1), _), ground(SharedVars)), SubstitList),
             list_to_set(SubstitList, SubstitSet),
-
-            map_singleton(unifiable, [SharedVars], SubstitSet, PairedVarBindings),
+            maplist(unifiable(SharedVars), SubstitSet, PairedVarBindings),
             substitSet_rec(G1, G2, PairedVarBindings, Weight, Depth)        
         )
     ).

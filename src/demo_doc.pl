@@ -4,6 +4,8 @@
 % - p/2 implementation
 % - special sampling mit SC inference
 % - constrained sampling
+% - cuts
+% - code organisation
 % - unconstrained sampling (ohne inference call)
 
 0.6 :: q(X).
