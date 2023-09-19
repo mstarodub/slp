@@ -6,14 +6,24 @@
 %   normalized SLP (all clauses forming a predicate add up to 1)
 %   pure SLP (no non-prob. clauses)
 
+replace_left(_, [], []).
+replace_left([], Remains, Remains).
+replace_left([NewL|TailNewL], [_=R|Tail], [NewL=R|Res]) :-
+    replace_left(TailNewL, Tail, Res).        
+    
+% works for inference_marginal(q(X), Prob) but not inference_marginal((s(X,Y),r(Y,Z)), Prob)
+% in the latter case Y is not part of the list in Weight but rather detemined by backtracking and output seperate (at least, if copy_term removed)
+inference_marginal(Goal, BindingProbList) :-  
+    copy_term(Goal, GoalFree), % preserving original variable names for output
+    z(GoalFree, Weight, 0),
+    term_variables(Goal, VarList), % TODO: may order of vars in list differ from the order in the output list?
+    maplist(replace_left(VarList), Weight, BindingProbList).
+
+
 % assumptions:
 %   G is the goal with only free variables
 %   G is non-compound; TODO: assert user input as clause and retract later
 %   ArgList contains the instantiated parameters for G
-
-inference_marginal(Goal, BindingProbList) :- z(Goal, BindingProbList, 0).
-
-
 
 % want p(f(b), P)
 % -> p(f(X), [X=b], P).
@@ -56,8 +66,8 @@ replace_args([Arg|Rest],Find,Replacement,[ReplacedArg|ReplacedRest]) :-
 p(G, RoundedResult) :-
     %as_vars(G, GFree),
     replace(G, b, X, GFree),
-    z(G, Numerator, 1),
-    z(GFree, Denominator, 1),
+    z(G, Numerator, _),
+    z(GFree, Denominator, _),
     Result is Numerator / Denominator,
     round_third(Result, RoundedResult).
 
@@ -100,7 +110,7 @@ unifSet_rec(CurrentGoal, RemainingGoal, [UnifClause|UnifSetTail], Akk, Depth) :-
         ->  BindingProb is ClauseProb*Weight,
             round_third(BindingProb, BindingProbRound), % rounding probability occurring in output
             append(UnifBag, [BindingProbRound], AkkTemp),
-            ( \+ integer(Akknew) -> append(AkkTemp, Akknew, Akk); Akk = AkkTemp ) % for all but the last element in unif set Akknew will be a list
+            ( \+ integer(Akknew) -> append([AkkTemp], Akknew, Akk); Akk = [AkkTemp] ) % for all but the last element in unif set Akknew will be a list
         ;   Akk is ClauseProb*Weight + Akknew).
 
 substitSet_rec(_, _, [], 0, _) :- !. % base case cut: prevents further backtracking and final output "false"
