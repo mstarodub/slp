@@ -1,3 +1,11 @@
+% TODO
+% - möglicherweise SC_inf unifset anpassen -> email
+% - marginal aus SC inference
+% - p/2 implementation
+% - special sampling mit SC inference
+% - constrained sampling
+% - unconstrained sampling (ohne inference call)
+
 0.6 :: q(X).
 0.2 :: q(a).
 % we have implicit failure, so, additionally:
@@ -26,6 +34,8 @@
 % inference_marginal(q(X), P).
 % ---> X = Omega - {a}, P = 0.6.
 % ---> X = a, P = 0.8
+% inference_marginal(q(b), P).
+% ---> X = b, P = 0.6
 % inference_marginal(qq(X), P).
 % ---> X = a, P = 5/10.
 % ---> X = b, P = 3/10.
@@ -41,6 +51,8 @@
 %   the denominator z(q(X), P) gives P = 0.8 because [check this] that is the required normalization weight for the correct final result
 % inference_sc(q(X), P).
 % ---> X = a, P = 1
+% inference_sc(q(b), P).
+% ---> X = b, P = 0.75
 % inference_sc(qq(X), P).
 % ---> X = a, P = 5/8
 % ---> X = b, P = 3/8

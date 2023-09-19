@@ -10,20 +10,60 @@
 %   G is the goal with only free variables
 %   G is non-compound; TODO: assert user input as clause and retract later
 %   ArgList contains the instantiated parameters for G
+
+% want p(f(b), P)
+% -> p(f(X), [X=b], P).
 p(G, ArgList, RoundedResult) :-
-    functor(G, Functor, Arity),
-    GInstantiated =.. [Functor|ArgList],
-    z(GInstantiated, Numerator),
-    z(G, Denominator),
+    copy_term(G, GFree),
+    unify_helper(G, ArgList),
+    z(G, Numerator),
+    z(GFree, Denominator),
     Result is Numerator / Denominator,
     round_third(Result, RoundedResult).
+
+% ---WIP---
+
+% https://stackoverflow.com/questions/12638347/replace-atom-with-variable
+% https://stackoverflow.com/questions/37260614/prolog-replacing-subterms/53145013#53145013
+% https://stackoverflow.com/questions/22812691/prolog-replace-each-instance-of-a-constant-in-a-list-with-a-variable
+
+as_vars_helper([], [], _).
+as_vars_helper([I|Is], [V|Vs], Map) :-
+    once(member(I/V, Map)),
+    as_vars_helper(Is, Vs, Map).
+
+as_vars(T, TV) :-
+    T =.. TList,
+    as_vars_helper(TList, TVList, _),
+    TV =.. TVList.
+
+replace(Term,Term,With,With) :-
+    !.
+replace(Term,Find,Replacement,Result) :-
+    Term =.. [Functor|Args],
+    replace_args(Args,Find,Replacement,ReplacedArgs),
+    Result =.. [Functor|ReplacedArgs].
+
+replace_args([],_,_,[]).
+replace_args([Arg|Rest],Find,Replacement,[ReplacedArg|ReplacedRest]) :-
+    replace(Arg,Find,Replacement,ReplacedArg),
+    replace_args(Rest,Find,Replacement,ReplacedRest).
+
+p(G, RoundedResult) :-
+    %as_vars(G, GFree),
+    replace(G, b, X, GFree),
+    z(G, Numerator),
+    z(GFree, Denominator),
+    Result is Numerator / Denominator,
+    round_third(Result, RoundedResult).
+
+% --- WIP End ---
 
 % reimplementation of maplist for singleton list [Singleton] applied to arbitrarily long list [Elem|Tail]
 map_singleton(_, _, [], []) :- !.
 map_singleton(Goal, [Singleton], [Elem|Tail], [ResElem|ResTail]) :-
     call(Goal, Singleton, Elem, ResElem),
     map_singleton(Goal, [Singleton], Tail, ResTail).
-
 
 % propagates bindings of CurrentGoal to RemainingGoal
 % the List in the form [X=a, Y=b, ...]
@@ -142,6 +182,10 @@ choose([[Prob, Head, Body]|Tail], Head1, Body1, Akk, Rand, Rest) :-
 0.3 :: q(a).
 0.6 :: q(b).
 0.1 :: q(c).
+
+0.6 :: qq(X).
+0.2 :: qq(a).
+0.1 :: qq(b).
 
 0.2 :: f(b).
 0.6 :: f(X).
