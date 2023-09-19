@@ -145,6 +145,10 @@ choose([[Prob, Head, Body]|Tail], Head1, Body1, Akk, Rand, Rest) :-
 
 0.2 :: f(b).
 0.6 :: f(X).
+0.2 :: f(X) :- fail.
+
+0.1 :: st(a, b).
+0.9 :: st(X, b) :- fail.
 
 0.7 :: s(X, b) :- q(X).
 0.1 :: s(a, c).

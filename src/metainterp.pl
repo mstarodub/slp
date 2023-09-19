@@ -159,6 +159,22 @@ dice_reward([Player,Banker],[Player+D,Banker-D]) :- sample(roll_dice(D)).
 
 0.2 :: f(b).
 0.6 :: f(X).
+0.2 :: f(X) :- fail.
+
+0.1 :: st0(a, b).
+0.9 :: st0(X, b) :- fail.
+
+0.1 :: st(a).
+0.9 :: st(X) :- fail.
+
+0.5 :: st2(X) :- stt2(X).
+0.5 :: st2(X) :- sst3(X).
+1/2 :: sst2(X) :- fail.
+1/2 :: sst2(a).
+1/2 :: sst3(b).
+1/2 :: sst3(c).
+
+
 
 % TODO/extra:
 % sampling(q(X), q(Z)) -> sampling(q(X)), sampling(q(Z)).
