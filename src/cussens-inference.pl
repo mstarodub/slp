@@ -110,8 +110,9 @@ sample((G1, G2)) :-
     sample(G1),
     sample(G2).
 
+% Should this case really be a subclause of sample or does it rather belong to the (toplevel) metainterpreter
 sample(G) :-
-    \+clause(G, _),
+    \+clause((Prob :: G), _),
     !,
     G.
 
@@ -131,7 +132,7 @@ choose([[Prob, Head, Body]|Tail], Head1, Body1, Akk, Rand, Rest) :-
     choose(Tail, Head1, Body1, Akknew, Rand, Rest1),
     Rest is Rest1 + Prob,
     ((var(Body1),
-        Prob1 is Akk/(Akk+Rest), Rand >= P1, Head1 = Head, Body1 = Body);
+        Prob1 is Akk/(Akk+Rest), Rand >= Prob1, Head1 = Head, Body1 = Body);
     true).
 
 % TESTS
