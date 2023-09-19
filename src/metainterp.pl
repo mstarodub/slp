@@ -142,15 +142,23 @@ stop([Player,Banker],_) :-
     write('Player = '), write(Player1),
     write('Banker = '), write(Banker1).
 pay_entrance([Player,Banker],[Player-4,Banker+4]).
-dice_reward([Player,Banker],[Player+D,Banker-D]) :- roll_dice(D).
+dice_reward([Player,Banker],[Player+D,Banker-D]) :- sample(roll_dice(D)).
 
-1/6::roll_dice(1).
+% ohne sample(roll_...)) / metapredicate:
+% X :- _ :: X, sample(X).
+
+
+% 1/2 roll_dice(X) :- even_zwischen_2_und_6(X).
 1/6::roll_dice(1).
 1/6::roll_dice(2).
 1/6::roll_dice(3).
 1/6::roll_dice(4).
 1/6::roll_dice(5).
 1/6::roll_dice(6).
+
+
+0.2 :: f(b).
+0.6 :: f(X).
 
 % TODO/extra:
 % sampling(q(X), q(Z)) -> sampling(q(X)), sampling(q(Z)).

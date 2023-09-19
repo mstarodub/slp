@@ -16,10 +16,3 @@ max:
                 wir gehen davon aus das alle ereignisse unabhängig aber nicht disjunkt sind.
                 damit berechnet sich die wahscheinlichekit über p1 + p2 - p1*p2 und ist in jeder clause <= 1.
 
-implementation:
-berechnungen können alle in ffi sein (c/c++/rust), core logic in prolog
-    ffi:
-        https://github.com/k3ut0i/swipl-ffi-examples
-        https://www.swi-prolog.org/pldoc/man?section=shlib
-        https://www.swi-prolog.org/pldoc/man?section=foreign-read-list
-        https://www.swi-prolog.org/pldoc/man?section=foreign-unify

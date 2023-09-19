@@ -140,7 +140,11 @@ choose([[Prob, Head, Body]|Tail], Head1, Body1, Akk, Rand, Rest) :-
 0.6 :: p(a).
 0.4 :: p(b).
 0.3 :: q(a).
-0.7 :: q(b).
+0.6 :: q(b).
+0.1 :: q(c).
+
+0.2 :: f(b).
+0.6 :: f(X).
 
 0.7 :: s(X, b) :- q(X).
 0.1 :: s(a, c).
