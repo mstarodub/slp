@@ -1,13 +1,13 @@
 % TODO
-% - p/2 implementation
-% - special sampling mit SC inference
+% - p/2 implementation (compound?)
 % - constrained sampling
+% - demo / tests
 % - cuts
 % - code organisation / refactor
-% - unconstrained sampling (ohne inference call)
 % - improving output of marginal and remove type error (Weight can be float in SC case or List of Lists in marginal case)
 % - splitting for marginal
 % - err if a functor's labels sum to >1'
+% - special sampling mit SC inference
 % - impure
 % - disjunction
 
