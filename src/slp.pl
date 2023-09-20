@@ -236,10 +236,9 @@ sample_UC((G1, G2)) :-
     sample_UC(G1),
     sample_UC(G2).
 
-% impure SLP case?
+% base case: true or fail. returns "false" when encountering fail
 sample_UC(G) :-
-    %\+clause((Prob :: G), _),
-    writeln(G),
+    % writeln(G),
     !,
     G.
 
