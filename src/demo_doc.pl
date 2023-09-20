@@ -3,10 +3,13 @@
 % - special sampling mit SC inference
 % - constrained sampling
 % - cuts
-% - code organisation / refactor marginal-SC
+% - code organisation / refactor
 % - unconstrained sampling (ohne inference call)
 % - improving output of marginal and remove type error (Weight can be float in SC case or List of Lists in marginal case)
 % - splitting for marginal
+% - err if a functor's labels sum to >1'
+% - impure
+% - disjunction
 
 0.6 :: q(X).
 0.2 :: q(a).
