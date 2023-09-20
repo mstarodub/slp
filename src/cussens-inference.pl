@@ -56,20 +56,37 @@ p(G, ArgList, RoundedResult) :-
 % https://stackoverflow.com/questions/37260614/prolog-replacing-subterms/53145013#53145013
 % https://stackoverflow.com/questions/22812691/prolog-replace-each-instance-of-a-constant-in-a-list-with-a-variable
 
-as_vars_helper([], [], _).
-as_vars_helper([I|Is], [V|Vs], Map) :-
-    once(member(I/V, Map)),
-    as_vars_helper(Is, Vs, Map).
+as_vars([], []).
+as_vars([_|GroundTail], [_|VarsTail]) :-
+    as_vars(GroundTail, VarsTail).
 
-as_vars(T, TV) :-
-    T =.. [Functor|TList],
-    % TODO: need to remove the functor first (or use t)
-    as_vars_helper(TList, TVList, _),
-    TV =.. [Functor|TVList].
+% replacing all ground atoms in Ground with free variables
+free_bindings([], GroundList, FreeList, []) :- as_vars(GroundList, FreeList).
+free_bindings([TermHead|TermTail], GroundList, _, [FreeHead|ResListTail]) :-
+    % TermHead is a variable
+    var(TermHead),
+    % appending TermHead to GroundList as well to avoid possible variable naming clashes
+    free_bindings(TermTail, [TermHead|GroundList], [FreeHead|_], ResListTail).
+free_bindings([TermHead|TermTail], GroundTail, _, [FreeHead|ResTail]) :-
+    % TermHead no variable (otherwise instantiation errors in =..)
+    nonvar(TermHead),
+    TermHead =.. [Functor|TList],
+    % TermHead is atomic and ground
+    TList = [],
+    %nonvar(Functor),
+    free_bindings(TermTail, [Functor|GroundTail], [FreeHead|_], ResTail).
+free_bindings([TermHead|TermTail], GroundList, FreeList, [Predicate]) :-
+    % TermHead no variable (otherwise instantiation errors in =..)
+    nonvar(TermHead),
+    TermHead =.. [Functor|TList],
+    % mutual exclusivity of clauses preventing false results via backtracking (e.g. for free_bindings([f(a)], [], _, Free))
+    TList \= [],
+    free_bindings(TList, GroundList, FreeList, ResListTail),
+    Predicate =.. [Functor|ResListTail].
 
 p(G, RoundedResult) :-
     %as_vars(G, GFree),
-    replace(G, b, X, GFree),
+    free_bindings([G], [], _, GFree),
     z(G, Numerator, _),
     z(GFree, Denominator, _),
     Result is Numerator / Denominator,
@@ -91,7 +108,7 @@ round_third(Float, RoundedFloat) :-
     RoundedFloat is RoundedScaled/1000. 
 
 % Akk is the Weight, can be a float or a List. zero depth base case for concatenation: need empty lists. Depth gets increased in each z recursion, not per unifSet_rec recursion
-unifSet_rec(_, _, [], [], 0) :- !.
+unifSet_rec(_, _, [], [], Depth) :- nonvar(Depth), Depth = 0, !.
 unifSet_rec(_, _, [], 0, _) :- !. % base case cut: prevents further backtracking and final output "false"
 unifSet_rec(CurrentGoal, RemainingGoal, [UnifClause|UnifSetTail], Akk, Depth) :-
     % unifSet_rec recursion requires all subgoals to be as unbound as possible
@@ -105,11 +122,12 @@ unifSet_rec(CurrentGoal, RemainingGoal, [UnifClause|UnifSetTail], Akk, Depth) :-
     % UnifBag then has the instantiation of variables for the current C (UnifClause)
     % e.g. [X=Y, Y=b]
     unifiable(CurrentGoal, ClauseHead, UnifBag),
-    unify_helper(RemainingGoal, UnifBag), % how should unify_helper behave if variables in UnifBag have more unification options?
-    DepthNew is Depth+1,
+    unify_helper(RemainingGoal, UnifBag), % TODO: how should unify_helper behave if variables in UnifBag have more unification options?
+    % incrementing Depth value for marginal inference when reaching new level for z recursion
+    ( nonvar(Depth) -> DepthNew is Depth+1; DepthNew = Depth),
     z((ClauseBody, RemainingGoal), Weight, DepthNew),
     unifSet_rec(CurrentGoalFree, RemainingGoalFree, UnifSetTailFree, Akknew, Depth),
-    ( Depth = 0
+    ( nonvar(Depth), Depth = 0
         % marginal inf toplevel
         ->  BindingProb is ClauseProb*Weight,
             round_third(BindingProb, BindingProbRound), % rounding probability occurring in output
