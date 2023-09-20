@@ -62,21 +62,10 @@ as_vars_helper([I|Is], [V|Vs], Map) :-
     as_vars_helper(Is, Vs, Map).
 
 as_vars(T, TV) :-
-    T =.. TList,
+    T =.. [Functor|TList],
+    % TODO: need to remove the functor first (or use t)
     as_vars_helper(TList, TVList, _),
-    TV =.. TVList.
-
-replace(Term,Term,With,With) :-
-    !.
-replace(Term,Find,Replacement,Result) :-
-    Term =.. [Functor|Args],
-    replace_args(Args,Find,Replacement,ReplacedArgs),
-    Result =.. [Functor|ReplacedArgs].
-
-replace_args([],_,_,[]).
-replace_args([Arg|Rest],Find,Replacement,[ReplacedArg|ReplacedRest]) :-
-    replace(Arg,Find,Replacement,ReplacedArg),
-    replace_args(Rest,Find,Replacement,ReplacedRest).
+    TV =.. [Functor|TVList].
 
 p(G, RoundedResult) :-
     %as_vars(G, GFree),
@@ -192,38 +181,6 @@ z(G, Weight, Depth) :-
 
     findall([Prob, G, Body], clause((Prob :: G), Body), UnifSet),
     unifSet_rec(G, true, UnifSet, Weight, Depth).
-
-
-% compound body
-sample((G1, G2)) :-
-    !,
-    sample(G1),
-    sample(G2).
-
-% Should this case really be a subclause of sample or does it rather belong to the (toplevel) metainterpreter
-sample(G) :-
-    \+clause((Prob :: G), _),
-    !,
-    G.
-
-sample(Head) :-
-    findall([Prob, Head, Body], clause((Prob :: Head), Body), Bag),
-    random_clause(Head, Body, Bag),
-    !,
-    sample(Body).
-
-% probabilistic clause selector
-random_clause(Head, Body, Bag) :-
-    Rand is random_float,
-    choose(Bag, Head, Body, 0, Rand, Sum).
-choose([], _, _, _, _, 0).
-choose([[Prob, Head, Body]|Tail], Head1, Body1, Akk, Rand, Rest) :-
-    Akknew is Akk + Prob,
-    choose(Tail, Head1, Body1, Akknew, Rand, Rest1),
-    Rest is Rest1 + Prob,
-    ((var(Body1),
-        Prob1 is Akk/(Akk+Rest), Rand >= Prob1, Head1 = Head, Body1 = Body);
-    true).
 
 % TESTS
 % want: z((q(X), p(X)), W) === 0.46
