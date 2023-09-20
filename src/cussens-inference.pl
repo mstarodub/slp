@@ -9,14 +9,18 @@
 replace_left(_, [], []).
 replace_left([], Remains, Remains).
 replace_left([NewL|TailNewL], [_=R|Tail], [NewL=R|Res]) :-
-    replace_left(TailNewL, Tail, Res).        
+    var(NewL),
+    replace_left(TailNewL, Tail, Res).
+% ignoring already globally bound variables s.t. lenght of binding list [_=R|Tail] equals list of new lefts [NewL|TailNewL]
+replace_left([NewL|TailNewL], [_=R|Tail], Res) :-
+    nonvar(NewL),
+    replace_left(TailNewL, [_=R|Tail], Res).                
     
 % works for inference_marginal(q(X), Prob) but not inference_marginal((s(X,Y),r(Y,Z)), Prob)
 % in the latter case Y is not part of the list in Weight but rather detemined by backtracking and output seperate (at least, if copy_term removed)
 inference_marginal(Goal, BindingProbList) :-  
-    copy_term(Goal, GoalFree), % preserving original variable names for output
-    z(GoalFree, Weight, 0),
-    term_variables(Goal, VarList), % TODO: may order of vars in list differ from the order in the output list?
+    term_variables(Goal, VarList), % preserving variable names for pretty output; TODO: may order of vars in list differ from the order in the output list?
+    z(Goal, Weight, 0), 
     maplist(replace_left(VarList), Weight, BindingProbList).
 
 
