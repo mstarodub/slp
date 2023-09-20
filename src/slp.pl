@@ -223,21 +223,21 @@ z(G, Weight, Depth) :-
 % importance: wahrscheinlich ein improvement zum improved loglinear
 
 % unconstrained (loglinear) sampling
-sample(Head) :-
+sample_UC(Head) :-
     findall([Prob::Head, Body], clause((Prob :: Head), Body), ClauseBag),
     random_clause(Head, Body, ClauseBag),
     % we just sample once for now
     !,
-    sample(Body).
+    sample_UC(Body).
 
 % compound body
-sample((G1, G2)) :-
+sample_UC((G1, G2)) :-
     !,
-    sample(G1),
-    sample(G2).
+    sample_UC(G1),
+    sample_UC(G2).
 
 % impure SLP case?
-sample(G) :-
+sample_UC(G) :-
     %\+clause((Prob :: G), _),
     writeln(G),
     !,
