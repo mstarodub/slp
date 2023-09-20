@@ -14,7 +14,14 @@ replace_left([NewL|TailNewL], [_=R|Tail], [NewL=R|Res]) :-
 % ignoring already globally bound variables s.t. lenght of binding list [_=R|Tail] equals list of new lefts [NewL|TailNewL]
 replace_left([NewL|TailNewL], [_=R|Tail], Res) :-
     nonvar(NewL),
-    replace_left(TailNewL, [_=R|Tail], Res).                
+    replace_left(TailNewL, [_=R|Tail], Res).
+
+% replacing ground atoms with free variables according to the unification pattern in UnifBag
+ground_to_var([], _, []).
+ground_to_var([GroundHead|GroundTail], UnifBag, [Var|VarListTail]) :-
+    member((Var=GroundHead), UnifBag),
+    ground_to_var(GroundTail, UnifBag, VarListTail).
+
     
 % example call: inference_marginal((s(X,Y),r(Y,Z)), Prob)
 % in the general case, one Variable (TODO: which?) is not part of the list in Weight but rather detemined by backtracking
@@ -40,42 +47,53 @@ inference_marginal(Goal, ProbList) :-
 %   G is non-compound; TODO: assert user input as clause and retract later
 %   ArgList contains the instantiated parameters for G
 
-% want p(f(b), P)
-% -> p(f(X), [X=b], P).
-p(G, ArgList, RoundedResult) :-
-    copy_term(G, GFree),
-    unify_helper(G, ArgList),
-    z(G, Numerator, _),
-    z(GFree, Denominator, _),
-    Result is Numerator / Denominator,
-    round_third(Result, RoundedResult).
-
-% ---WIP---
-
 % https://stackoverflow.com/questions/12638347/replace-atom-with-variable
 % https://stackoverflow.com/questions/37260614/prolog-replacing-subterms/53145013#53145013
 % https://stackoverflow.com/questions/22812691/prolog-replace-each-instance-of-a-constant-in-a-list-with-a-variable
 
+% for every ground element in GroundList return a new free variable
 as_vars([], []).
 as_vars([_|GroundTail], [_|VarsTail]) :-
     as_vars(GroundTail, VarsTail).
 
-% replacing all ground atoms in Ground with free variables
-free_bindings([], GroundList, FreeList, []) :- as_vars(GroundList, FreeList).
-free_bindings([TermHead|TermTail], GroundList, _, [FreeHead|ResListTail]) :-
+% idea behind free_bindings:
+% destructure input term iteratively, ultimately reaching every ground atom that needs to be replaced by a free variable
+% based on current term structure three processing methods:
+%   variables: no replacement required --> appending to result list as left-most element 
+%   ground atoms: replacement required -->
+%       appending atom to GroundList so that it gets replaced in the base case,
+%       retrieving corresponding free variable from FreeList and append it as left-most element to result list
+%   predicates: no replacement required --> 
+%       destructuring with =.. and calling recursion on its arguments
+%       reassembling predicate after all inner arguments have been processed
+%       adding predicate (now containing only free variables) as left-most element to result list
+%
+% obstacles: Same bindings must be replaced with same variables --> first collecting all bindings in list and only then replacing them   
+
+% base case: replacing all ground atoms in Ground with free variables
+free_bindings([], GroundList, FreeList, []) :- 
+    % list_to_set to obtain same variable name for same binding
+    list_to_set(GroundList, GroundSet),
+    % for each ground atom in GroundSet get one fresh free variable
+    as_vars(GroundSet, FreeSet),
+    unifiable(FreeSet, GroundSet, UnifBag),
+    % change ground atoms to variables according to pairing in UnifBag
+    ground_to_var(GroundList, UnifBag, FreeList).
+% handling variables
+free_bindings([TermHead|TermTail], GroundList, FreeList, [TermHead|ResListTail]) :-
     % TermHead is a variable
     var(TermHead),
-    % appending TermHead to GroundList as well to avoid possible variable naming clashes
-    free_bindings(TermTail, [TermHead|GroundList], [FreeHead|_], ResListTail).
-free_bindings([TermHead|TermTail], GroundTail, _, [FreeHead|ResTail]) :-
+    free_bindings(TermTail, GroundList, FreeList, ResListTail).
+% handling ground atoms
+free_bindings([TermHead|TermTail], GroundTail, FreeTail, [FreeHead|ResTail]) :-
     % TermHead no variable (otherwise instantiation errors in =..)
     nonvar(TermHead),
     TermHead =.. [Functor|TList],
     % TermHead is atomic and ground
     TList = [],
-    %nonvar(Functor),
-    free_bindings(TermTail, [Functor|GroundTail], [FreeHead|_], ResTail).
-free_bindings([TermHead|TermTail], GroundList, FreeList, [Predicate]) :-
+    free_bindings(TermTail, [Functor|GroundTail], [FreeHead|FreeTail], ResTail).
+% handling non-ground predicates
+free_bindings([TermHead|_], GroundList, FreeList, [Predicate]) :-
     % TermHead no variable (otherwise instantiation errors in =..)
     nonvar(TermHead),
     TermHead =.. [Functor|TList],
@@ -84,15 +102,14 @@ free_bindings([TermHead|TermTail], GroundList, FreeList, [Predicate]) :-
     free_bindings(TList, GroundList, FreeList, ResListTail),
     Predicate =.. [Functor|ResListTail].
 
+
 p(G, RoundedResult) :-
     %as_vars(G, GFree),
-    free_bindings([G], [], _, GFree),
+    free_bindings([G], [], _, [GFree]),
     z(G, Numerator, _),
     z(GFree, Denominator, _),
     Result is Numerator / Denominator,
     round_third(Result, RoundedResult).
-
-% --- WIP End ---
 
 % propagates bindings of CurrentGoal to RemainingGoal
 % the List in the form [X=a, Y=b, ...]
@@ -211,6 +228,9 @@ z(G, Weight, Depth) :-
 0.6 :: qq(X).
 0.2 :: qq(a).
 0.1 :: qq(b).
+
+5/10 :: qq(a).
+3/10 :: qq(b).
 
 0.2 :: f(b).
 0.6 :: f(X).
