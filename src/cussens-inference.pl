@@ -6,7 +6,7 @@
 %   normalized SLP (all clauses forming a predicate add up to 1)
 %   pure SLP (no non-prob. clauses)
 
-replace_left(_, [], []).
+% when the VarList is exhausted, set the result to the singe remaining entry in the weight, that entry is the probability
 replace_left([], Remains, Remains).
 replace_left([NewL|TailNewL], [_=R|Tail], [NewL=R|Res]) :-
     var(NewL),
@@ -16,12 +16,23 @@ replace_left([NewL|TailNewL], [_=R|Tail], Res) :-
     nonvar(NewL),
     replace_left(TailNewL, [_=R|Tail], Res).                
     
-% works for inference_marginal(q(X), Prob) but not inference_marginal((s(X,Y),r(Y,Z)), Prob)
-% in the latter case Y is not part of the list in Weight but rather detemined by backtracking and output seperate (at least, if copy_term removed)
-inference_marginal(Goal, BindingProbList) :-  
-    term_variables(Goal, VarList), % preserving variable names for pretty output; TODO: may order of vars in list differ from the order in the output list?
+% example call: inference_marginal((s(X,Y),r(Y,Z)), Prob)
+% in the general case, one Variable (TODO: which?) is not part of the list in Weight but rather detemined by backtracking
+inference_marginal(Goal, ProbList) :-
+    % example goal: (s(X,Y), r(Y,Z))
+    % ---> VarList === [X,Y,Z]
+    % after z call: VarList === [X,b,Z]
+    % because of that:
+    % preserving variable names for pretty output
+    % TODO: may order of vars in list differ from the order in the output list?
+    term_variables(Goal, VarList),
     z(Goal, Weight, 0), 
-    maplist(replace_left(VarList), Weight, BindingProbList).
+    % for the example goal of (s(X,Y), r(Y,Z)), we currently have
+    % Y=b,
+    % Weight = [[b=b, _=X, 0.14], [c=c, _=a, 0], [b=b, _=b, 0.04]]
+    % invariant: forall w in Weight. len(VarList - ground terms) === len(w - last element)
+    % replace_left then takes the variables from VarList and replaces the left hand '=' sides with them in order (for each w in Weight [is a list])
+    maplist(replace_left(VarList), Weight, ProbList).
 
 
 % assumptions:
@@ -90,25 +101,33 @@ round_third(Float, RoundedFloat) :-
     RoundedScaled is round(Float*1000),
     RoundedFloat is RoundedScaled/1000. 
 
+% Akk is the Weight, can be a float or a List. zero depth base case for concatenation: need empty lists. Depth gets increased in each z recursion, not per unifSet_rec recursion
+unifSet_rec(_, _, [], [], 0) :- !.
 unifSet_rec(_, _, [], 0, _) :- !. % base case cut: prevents further backtracking and final output "false"
 unifSet_rec(CurrentGoal, RemainingGoal, [UnifClause|UnifSetTail], Akk, Depth) :-
     % unifSet_rec recursion requires all subgoals to be as unbound as possible
     % free variable relations must be preserved, e.g. p(X), q(X) must become p(Y), q(Y)
+    % -> copy everything but the current C (UnifClause)
     copy_term((CurrentGoal,RemainingGoal, UnifSetTail), (CurrentGoalFree,RemainingGoalFree, UnifSetTailFree)),
 
     nth0(0, UnifClause, ClauseProb),
     nth0(1, UnifClause, ClauseHead),
     nth0(2, UnifClause, ClauseBody),
-    unifiable(ClauseHead, CurrentGoal, UnifBag),
+    % UnifBag then has the instantiation of variables for the current C (UnifClause)
+    % e.g. [X=Y, Y=b]
+    unifiable(CurrentGoal, ClauseHead, UnifBag),
     unify_helper(RemainingGoal, UnifBag), % how should unify_helper behave if variables in UnifBag have more unification options?
     DepthNew is Depth+1,
     z((ClauseBody, RemainingGoal), Weight, DepthNew),
     unifSet_rec(CurrentGoalFree, RemainingGoalFree, UnifSetTailFree, Akknew, Depth),
     ( Depth = 0
+        % marginal inf toplevel
         ->  BindingProb is ClauseProb*Weight,
             round_third(BindingProb, BindingProbRound), % rounding probability occurring in output
+            % [X=Y, Y=b] <> [0.3] === [X=Y, Y=b, 0.3]
             append(UnifBag, [BindingProbRound], AkkTemp),
-            ( \+ integer(Akknew) -> append([AkkTemp], Akknew, Akk); Akk = [AkkTemp] ) % for all but the last element in unif set Akknew will be a list
+            append([AkkTemp], Akknew, Akk) % for all but the last element in unif set Akknew will be a list
+        % SC inf / marginal recursive
         ;   Akk is ClauseProb*Weight + Akknew).
 
 substitSet_rec(_, _, [], 0, _) :- !. % base case cut: prevents further backtracking and final output "false"
@@ -118,10 +137,12 @@ substitSet_rec(CurrentGoal, RemainingGoal, [Substitutions|PairedVarBindingsTail]
     % free variable relations must be preserved, e.g. p(X), q(X) must become p(Y), q(Y)
     copy_term((CurrentGoal,RemainingGoal, PairedVarBindingsTail), (CurrentGoalFree,RemainingGoalFree, PairedVarBindingsTailFree)),
 
+    % here, the third argument of substitSet_rec are suitable substitutions, as opposed to clauses in unifSet_rec
     unify_helper(CurrentGoal, Substitutions),
     unify_helper(RemainingGoal, Substitutions),
     z(CurrentGoal, Weight1, Depth),
     z(RemainingGoal, Weight2, Depth),
+    % sum over all possible splitting substitutions
     substitSet_rec(CurrentGoalFree, RemainingGoalFree, PairedVarBindingsTailFree, Akknew, Depth),
     Akk is Weight1*Weight2 + Akknew.
 
@@ -149,9 +170,15 @@ z((G1, G2), Weight, Depth) :-
             z(G2, Weight2, Depth),
             Weight is Weight1*Weight2
         % shared variables --> computation of splitting substitution set
-        ;   % only ground terms make goals disjunct
+        ;   % only ground terms make goals disjunct (e.g. we don't want Y=Y)
+            % collect all possible values of SharedVars in matching clause heads
+            % example: (G1, G2) === (s(X,Y), r(Y,Z))
+            % ---> SharedVars = [Y]
+            % ---> SubstitList = [[b],[c]]; in each entry list we have the bindings for all shared variables
             findall(SharedVars, (clause((_ :: G1), _), ground(SharedVars)), SubstitList),
+            % SubstitSet is Theta, the set of splitting substitutions. in the (s(X,Y), r(Y,Z)) case, a substitution of Y= b or Y= c makes the Variables in G1, G2 disjoint
             list_to_set(SubstitList, SubstitSet),
+            % put all possibilities for binding the shared variables into PairedVarBindings
             maplist(unifiable(SharedVars), SubstitSet, PairedVarBindings),
             substitSet_rec(G1, G2, PairedVarBindings, Weight, Depth)        
         )
@@ -222,5 +249,3 @@ choose([[Prob, Head, Body]|Tail], Head1, Body1, Akk, Rand, Rest) :-
 0.2 :: s(b, b).
 0.2 :: r(b, Z) :- p(Z).
 0.8 :: r(a, b).
-
-% current state: inference_marginal((s(X,Y), r(Y,Z)), Prob) results in Y=b, Prob = [b=b, _=X, 0.14, c=c, _=a, 0, b=b, _=b, 0.04] ; false.

@@ -1,12 +1,12 @@
 % TODO
-% - möglicherweise SC_inf unifset anpassen -> email
-% - marginal aus SC inference
 % - p/2 implementation
 % - special sampling mit SC inference
 % - constrained sampling
 % - cuts
-% - code organisation
+% - code organisation / refactor marginal-SC
 % - unconstrained sampling (ohne inference call)
+% - improving output of marginal and remove type error (Weight can be float in SC case or List of Lists in marginal case)
+% - splitting for marginal
 
 0.6 :: q(X).
 0.2 :: q(a).
