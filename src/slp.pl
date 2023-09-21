@@ -112,7 +112,7 @@ free_bindings([TermHead|TermTail], RemainingTerms, GroundTail, FreeTail, [FreeHe
     free_bindings(TermTail, RemainingTerms, [Functor|GroundTail], [FreeHead|FreeTail], DepthResTail, BreadthResList).
 % depth recursion: handling non-ground predicates
 % result is appended to overall result list in right-most argument
-free_bindings([TermHead|_], RemainingTerms, GroundList, FreeList, [Predicate], [[Predicate]|BreadthResTail]) :-
+free_bindings([TermHead|_], RemainingTerms, GroundList, FreeList, [Predicate], [Predicate|BreadthResTail]) :-
     % TermHead no variable (otherwise instantiation errors in =..)
     nonvar(TermHead),
     TermHead =.. [Functor|TList],
@@ -125,7 +125,7 @@ free_bindings([TermHead|_], RemainingTerms, GroundList, FreeList, [Predicate], [
 p(G, RoundedResult) :-
     goal_to_list(G, [GHead|GTail]),
     free_bindings([GHead], GTail, [], _, _, GFreeList),
-    list_to_goal(GFreeList, GFree),
+    goal_to_list(GFree, GFreeList),
     z(G, Numerator, _),
     z(GFree, Denominator, _),
     Result is Numerator / Denominator,
