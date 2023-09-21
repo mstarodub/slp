@@ -326,11 +326,15 @@ transform_probabilities([[P1::H1, B1],[P2::H2, B2]|Tail], L) :-
 sample_SC(Head) :-
     findall([Prob::Head, Body], clause((Prob :: Head), Body), ClauseBag),
     random_clause(Head, Body, ClauseBag),
+    % Head + Body ground; bind Prob
+    clause((Prob :: Head), Body),
     !,
     ( sample_SC(Body)
     -> !
     % if we fail in the above, preprocess the tree, rewriting probabilities
-    ;   sum_remaining(ClauseBag, [Prob::Head, Body], Denominator),
+    ;   writeln([Prob::Head, Body]),
+        sum_remaining(ClauseBag, Prob, 0, Denominator),
+        writeln(Denominator),
         change_prob(ClauseBag, [Prob::Head, Body], Denominator)
     ).
 
@@ -342,11 +346,67 @@ sample_SC((G1, G2)) :-
 sample_SC(G) :-
     G.
 
+change_prob([], [_::_, _], _).
+% failure -> 0
+change_prob([[Prob::Head, Body]|BagTail], [Prob::Head, Body], Denominator) :-
+    writeln([Prob::Head, Body]),
+    retract(Prob::Head :- Body),
+    assertz(0::Head :- Body),
+    change_prob(BagTail, [Prob::Head, Body], Denominator).
+% otherwise -> adjust
+change_prob([[P::H, B]|BagTail], [Prob::Head, Body], Denominator) :-
+    writeln(BagTail),
+    retract(P::H :- B),
+    round_third(P/Denominator, Rounded).
+    assertz(Rounded::H :- B),
+    change_prob(BagTail, [Prob::Head, Body], Denominator).
+
+sum_remaining([], FailedP, Akk, Denominator) :-
+    Denominator is Akk - FailedP.
+sum_remaining([[P::_, _]|BagTail], FailedP, Akk, Denominator) :-
+    Akknew is Akk + P,
+    sum_remaining(BagTail, FailedP, Akknew, Denominator).
+
 % p(X) :- q1(X), q2(X).
 % q1(a).
 % q2(X) :- fail.
 
 % TESTS
+
+% sample_SC tree rewriting test:
+% have:
+% ├───½
+% │   ├───⅓
+% │   │   ├───½─⊸ fail             -> ¹⁄₁₂
+% │   │   └───½─⊸                  -> ¹⁄₁₂
+% │   ├───⅓─⊸ fail                -> ⅙
+% │   └───⅓─⊸                     -> ⅙
+% └───½─⊸                          -> ½
+% want:
+% ├───½
+% │   ├───½
+% │   │   ├───0─⊸ fail             -> 0
+% │   │   └───1─⊸                  -> ¼
+% │   ├───0─⊸ fail                 -> 0
+% │   └───½─⊸                      -> ¼
+% └───½─⊸                          -> ½
+1/2 :: ssct0.
+1/2 :: ssct0 :- ssct1.
+1/3 :: ssct1 :- fail.
+1/3 :: ssct1.
+1/3 :: ssct1 :- ssct2.
+1/2 :: ssct2 :- fail.
+1/2 :: ssct2.
+% after hitting fail twice:
+% 1/2 :: ssct0.
+% 1/2 :: ssct0 :- ssct1.
+% 0 :: ssct1 :- fail.
+% 1/3/0.6666666666666667 (===0.49) :: ssct1.
+% 1/3/0.6666666666666667 (===0.49) :: ssct1 :- ssct2.
+% 0 :: ssct2 :- fail.
+% 1/2/0.5 (===1) :: ssct2.
+
+
 % want: z((q(X), p(X)), W) === 0.46
 0.6 :: p(a).
 0.4 :: p(b).
