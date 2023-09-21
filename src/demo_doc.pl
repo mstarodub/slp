@@ -5,9 +5,11 @@
 % - cuts
 % - code organisation / refactor
 % - improving output of marginal and remove type error (Weight can be float in SC case or List of Lists in marginal case)
+% - compound assert/retract inference_SC
 % - splitting for marginal
 % - err if a functor's labels sum to >1'
 % - special sampling mit SC inference
+% - st(qq(X)) : (nested functors) inference, sampling
 % - impure
 % - disjunction
 

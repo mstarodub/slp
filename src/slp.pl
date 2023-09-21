@@ -27,6 +27,26 @@ ground_to_var([GroundHead|GroundTail], UnifBag, [Var|VarListTail]) :-
 goal_to_list((G1, G2), [G1|GoalTail]) :- goal_to_list(G2, GoalTail).
 goal_to_list(G, [G]) :- G \= (_ , _).
     
+inference_SC(G, Prob) :-
+    G \= (_, _),
+    clause(_::G, _),
+    % checking if variables are still free (e.g. X=X), then VarList won't be empty
+    term_variables(G, VarList),
+    ( VarList \= [] -> writeln('true,'); true),
+    p(G, Prob).
+
+% TODO: retract fails, therefore inference_SC fails
+inference_SC((G1,G2), Prob) :-
+    gensym(reserved_newgoal, X),
+    term_variables((G1, G2), VarList),
+    NewHead =.. [X|VarList],
+    writeln(1::NewHead),
+    assertz((1::NewHead :- (G1, G2))),
+    inference_SC(NewHead, Prob),
+    !,
+    writeln(1::NewHead),
+    retract(1::NewHead).
+
 % example call: inference_marginal((s(X,Y),r(Y,Z)), Prob)
 % in the general case, one Variable (TODO: which?) is not part of the list in Weight but rather detemined by backtracking
 inference_marginal(Goal, ProbList) :-
@@ -51,14 +71,16 @@ inference_marginal(Goal, ProbList) :-
 %   G is non-compound; TODO: assert user input as clause and retract later
 %   ArgList contains the instantiated parameters for G
 
-% https://stackoverflow.com/questions/12638347/replace-atom-with-variable
+% TODO: maybe this is better than our approach for replacing ground atoms with variables
 % https://stackoverflow.com/questions/37260614/prolog-replacing-subterms/53145013#53145013
-% https://stackoverflow.com/questions/22812691/prolog-replace-each-instance-of-a-constant-in-a-list-with-a-variable
-
-% for every ground element in GroundList return a new free variable
-as_vars([], []).
-as_vars([_|GroundTail], [_|VarsTail]) :-
-    as_vars(GroundTail, VarsTail).
+% replacee | replacement | term | res
+replace(Subterm0, Subterm, Term0, Term) :-
+    (   Term0 == Subterm0 -> Term = Subterm
+    ;   var(Term0) -> Term = Term0
+    ;   Term0 =.. [F|Args0],
+        maplist(replace(Subterm0,Subterm), Args0, Args),
+        Term =.. [F|Args]
+    ).
 
 % idea behind free_bindings:
 % destructure input term iteratively, ultimately reaching every ground atom that needs to be replaced by a free variable
@@ -85,7 +107,8 @@ free_bindings([], [], GroundList, FreeList, [], []) :-
     % list_to_set to obtain same variable name for same binding
     list_to_set(GroundList, GroundSet),
     % for each ground atom in GroundSet get one fresh free variable
-    as_vars(GroundSet, FreeSet),
+    length(GroundSet, GroundLength),
+    length(FreeSet, GroundLength),
     unifiable(FreeSet, GroundSet, UnifBag),
     % change ground atoms to variables according to pairing in UnifBag
     ground_to_var(GroundList, UnifBag, FreeList).
@@ -293,7 +316,7 @@ transform_probabilities([[P1::H1, B1],[P2::H2, B2]|Tail], L) :-
 
 0.6 :: qq(X).
 0.2 :: qq(a).
-% 0.1 :: qq(b).
+0.1 :: qq(b).
 
 0.2 :: f(b).
 0.6 :: f(X).
