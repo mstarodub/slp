@@ -221,6 +221,56 @@ z(G, Weight, Depth) :-
     findall([Prob, G, Body], clause((Prob :: G), Body), UnifSet),
     unifSet_rec(G, true, UnifSet, Weight, Depth).
 
+% loglinear: ähnlich zum v1, nur ohne inference call
+% unification-constrained: in der effizienz zwischen loglinear und backtrackable
+% backtrackable: hier implementieren
+% importance: wahrscheinlich ein improvement zum improved loglinear
+
+% unconstrained (loglinear) sampling
+sample_UC(Head) :-
+    findall([Prob::Head, Body], clause((Prob :: Head), Body), ClauseBag),
+    random_clause(Head, Body, ClauseBag),
+    % we just sample once for now
+    !,
+    sample_UC(Body).
+
+% compound body
+sample_UC((G1, G2)) :-
+    !,
+    sample_UC(G1),
+    sample_UC(G2).
+
+% base case: true or fail. returns "false" when encountering fail
+sample_UC(G) :-
+    % writeln(G),
+    !,
+    G.
+
+random_clause(Head, Body, ClauseBag) :-
+    transform_probabilities(ClauseBag, ShiftedClauseBag),
+    Rand is random_float,
+    choose(ShiftedClauseBag, Rand, [Head, Body]).
+
+choose([], _, false).
+choose([[ShiftedProb::ShiftedHead, Body]|Tail], SampleProb, Sample) :-
+    ( ShiftedProb >= SampleProb
+    -> Sample = [ShiftedHead, Body]
+    ; choose(Tail, SampleProb, Sample)).
+
+% shift the probabilities so we can sample from a uniform distribution
+% implicit failure/base case:
+transform_probabilities([[P::H, B]], [[P::H, B], Failure]) :-
+    % need a head with the same functor and arity, but all free variables as arguments
+    functor(H, FailureName, FailureArity),
+    length(K, FailureArity),
+    FailureH =.. [FailureName|K],
+    Failure = [1-P::FailureH, fail].
+transform_probabilities([[P1::H1, B1],[P2::H2, B2]|Tail], L) :-
+    TransfromedProb is P1 + P2,
+    transform_probabilities([[TransfromedProb::H2, B2]|Tail], TempL),
+    L = [[P1::H1, B1]|TempL].
+
+
 % TESTS
 % want: z((q(X), p(X)), W) === 0.46
 0.6 :: p(a).
