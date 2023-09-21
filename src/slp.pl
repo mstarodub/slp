@@ -26,6 +26,18 @@ ground_to_var([GroundHead|GroundTail], UnifBag, [Var|VarListTail]) :-
 % transferring initial goal to list
 goal_to_list((G1, G2), [G1|GoalTail]) :- goal_to_list(G2, GoalTail).
 goal_to_list(G, [G]) :- G \= (_ , _).
+
+inference_SC_test(G, Prob) :-
+    G \= (_, _),
+    clause(_::G, _).
+
+inference_SC_test((G1, G2), Prob) :-
+    clause(_::G1, _),
+    inference_SC_test(G2, Prob),
+    % checking if variables are still free (e.g. X=X), then VarList won't be empty
+    %term_variables(G, VarList),
+    %( VarList \= [] -> writeln('true,'); true),
+    p((G1, G2), Prob).
     
 inference_SC(G, Prob) :-
     G \= (_, _),
@@ -317,6 +329,8 @@ transform_probabilities([[P1::H1, B1],[P2::H2, B2]|Tail], L) :-
 0.6 :: qq(X).
 0.2 :: qq(a).
 0.1 :: qq(b).
+
+0.5 :: compound(X) :- p(X), q(X).
 
 0.2 :: f(b).
 0.6 :: f(X).
