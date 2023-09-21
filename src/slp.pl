@@ -26,6 +26,11 @@ ground_to_var([GroundHead|GroundTail], UnifBag, [Var|VarListTail]) :-
 goal_to_list((G1, G2), [G1|GoalTail]) :- goal_to_list(G2, GoalTail).
 goal_to_list(G, [G]) :- G \= (_ , _).
 
+% transferring free goal list to goal
+% TODO: correct list_to_goal implementation
+list_to_goal(G, (GHead)) :- [GHead|NoTail] = G, NoTail=[].
+list_to_goal([G1|GTail], (G1, GTailNew)) :- list_to_goal(GTail, GTailNew).
+
     
 % example call: inference_marginal((s(X,Y),r(Y,Z)), Prob)
 % in the general case, one Variable (TODO: which?) is not part of the list in Weight but rather detemined by backtracking
@@ -72,10 +77,16 @@ as_vars([_|GroundTail], [_|VarsTail]) :-
 %       reassembling predicate after all inner arguments have been processed
 %       adding predicate (now containing only free variables) as left-most element to result list
 %
-% obstacles: Same bindings must be replaced with same variables --> first collecting all bindings in list and only then replacing them   
+% obstacles: Same bindings must be replaced with same variables --> first collecting all bindings in list and only then replacing them 
+%
+% for compound goals: both depth and breadth recursion needed
+%   depth recursion: decomposing a single goal
+%   breadth recursion: recursively processing all subgoals, starting at the left-most
+%   second to last argument: list making up depth result
+%   last argument: list making up breadth result === overall result  
 
-% base case: replacing all ground atoms in Ground with free variables
-free_bindings([], GroundList, FreeList, []) :- 
+% breadth and depth base case: replacing all ground atoms in Ground with free variables
+free_bindings([], [], GroundList, FreeList, [], []) :- 
     % list_to_set to obtain same variable name for same binding
     list_to_set(GroundList, GroundSet),
     % for each ground atom in GroundSet get one fresh free variable
@@ -83,33 +94,38 @@ free_bindings([], GroundList, FreeList, []) :-
     unifiable(FreeSet, GroundSet, UnifBag),
     % change ground atoms to variables according to pairing in UnifBag
     ground_to_var(GroundList, UnifBag, FreeList).
-% handling variables
-free_bindings([TermHead|TermTail], GroundList, FreeList, [TermHead|ResListTail]) :-
+% breadth recursion starting at depth base case:
+free_bindings([], [RemainingHead|RemainingTail], GroundList, FreeList, [], BreadthResList) :-
+    free_bindings([RemainingHead], RemainingTail, GroundList, FreeList, NewDepthResList, BreadthResList).
+% depth recursion: handling variables
+free_bindings([TermHead|TermTail], RemainingTerms, GroundList, FreeList, [TermHead|DepthResTail], BreadthResList) :-
     % TermHead is a variable
     var(TermHead),
-    free_bindings(TermTail, GroundList, FreeList, ResListTail).
-% handling ground atoms
-free_bindings([TermHead|TermTail], GroundTail, FreeTail, [FreeHead|ResTail]) :-
+    free_bindings(TermTail, RemainingTerms, GroundList, FreeList, DepthResTail, BreadthResList).
+% depth recursion: handling ground atoms
+free_bindings([TermHead|TermTail], RemainingTerms, GroundTail, FreeTail, [FreeHead|DepthResTail], BreadthResList) :-
     % TermHead no variable (otherwise instantiation errors in =..)
     nonvar(TermHead),
     TermHead =.. [Functor|TList],
     % TermHead is atomic and ground
     TList = [],
-    free_bindings(TermTail, [Functor|GroundTail], [FreeHead|FreeTail], ResTail).
-% handling non-ground predicates
-free_bindings([TermHead|_], GroundList, FreeList, [Predicate]) :-
+    free_bindings(TermTail, RemainingTerms, [Functor|GroundTail], [FreeHead|FreeTail], DepthResTail, BreadthResList).
+% depth recursion: handling non-ground predicates
+% result is appended to overall result list in right-most argument
+free_bindings([TermHead|_], RemainingTerms, GroundList, FreeList, [Predicate], [[Predicate]|BreadthResTail]) :-
     % TermHead no variable (otherwise instantiation errors in =..)
     nonvar(TermHead),
     TermHead =.. [Functor|TList],
     % mutual exclusivity of clauses preventing false results via backtracking (e.g. for free_bindings([f(a)], [], _, Free))
     TList \= [],
-    free_bindings(TList, GroundList, FreeList, ResListTail),
-    Predicate =.. [Functor|ResListTail].
+    free_bindings(TList, RemainingTerms, GroundList, FreeList, DepthResTail, BreadthResTail),
+    Predicate =.. [Functor|DepthResTail].
 
 
 p(G, RoundedResult) :-
-    goal_to_list(G, GList),
-    free_bindings(GList, [], _, [GFree]),
+    goal_to_list(G, [GHead|GTail]),
+    free_bindings([GHead], GTail, [], _, _, GFreeList),
+    list_to_goal(GFreeList, GFree),
     z(G, Numerator, _),
     z(GFree, Denominator, _),
     Result is Numerator / Denominator,
@@ -282,9 +298,6 @@ transform_probabilities([[P1::H1, B1],[P2::H2, B2]|Tail], L) :-
 0.6 :: qq(X).
 0.2 :: qq(a).
 0.1 :: qq(b).
-
-5/10 :: qq(a).
-3/10 :: qq(b).
 
 0.2 :: f(b).
 0.6 :: f(X).
