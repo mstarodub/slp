@@ -1,5 +1,6 @@
 :- op(1199,xfx,::).
 :- discontiguous (::)/2.
+:- dynamic (::)/2.
 
 % meta-assumptions:
 %   only conjunctions
@@ -25,12 +26,6 @@ ground_to_var([GroundHead|GroundTail], UnifBag, [Var|VarListTail]) :-
 % transferring initial goal to list
 goal_to_list((G1, G2), [G1|GoalTail]) :- goal_to_list(G2, GoalTail).
 goal_to_list(G, [G]) :- G \= (_ , _).
-
-% transferring free goal list to goal
-% TODO: correct list_to_goal implementation
-list_to_goal(G, (GHead)) :- [GHead|NoTail] = G, NoTail=[].
-list_to_goal([G1|GTail], (G1, GTailNew)) :- list_to_goal(GTail, GTailNew).
-
     
 % example call: inference_marginal((s(X,Y),r(Y,Z)), Prob)
 % in the general case, one Variable (TODO: which?) is not part of the list in Weight but rather detemined by backtracking
@@ -242,6 +237,7 @@ z(G, Weight, Depth) :-
 % backtrackable: hier implementieren
 % importance: wahrscheinlich ein improvement zum improved loglinear
 
+% TODO: what is the expected result for sampling a goal that doesn't exist?
 % unconstrained (loglinear) sampling
 sample_UC(Head) :-
     findall([Prob::Head, Body], clause((Prob :: Head), Body), ClauseBag),
@@ -260,7 +256,7 @@ sample_UC((G1, G2)) :-
 sample_UC(G) :-
     % writeln(G),
     !,
-    G.
+    G. % executes "fail" when encountering failure, making sure we don't get spurious bindings through backtracking.
 
 random_clause(Head, Body, ClauseBag) :-
     transform_probabilities(ClauseBag, ShiftedClauseBag),
@@ -297,7 +293,7 @@ transform_probabilities([[P1::H1, B1],[P2::H2, B2]|Tail], L) :-
 
 0.6 :: qq(X).
 0.2 :: qq(a).
-0.1 :: qq(b).
+% 0.1 :: qq(b).
 
 0.2 :: f(b).
 0.6 :: f(X).

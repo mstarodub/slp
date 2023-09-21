@@ -1,5 +1,5 @@
 % TODO
-% - p/2 implementation (compound?)
+% -  inference_marginal(qq(X),P). ---> P = [[X=X, 0.6], [X=a, 0.2]] ; (should be 0.8)
 % - constrained sampling
 % - demo / tests
 % - cuts
