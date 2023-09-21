@@ -1,15 +1,18 @@
 % TODO
-% -  inference_marginal(qq(X),P). ---> P = [[X=X, 0.6], [X=a, 0.2]] ; (should be 0.8)
-% - constrained sampling
-% - demo / tests
-% - cuts
-% - code organisation / refactor
-% - improving output of marginal and remove type error (Weight can be float in SC case or List of Lists in marginal case)
-% - compound assert/retract inference_SC
-% - splitting for marginal
-% - err if a functor's labels sum to >1'
-% - special sampling mit SC inference
-% - st(qq(X)) : (nested functors) inference, sampling
+% R free_bindings umschreiben für replace
+% R inference_marginal(qq(X),P). ---> P = [[X=X, 0.6], [X=a, 0.2]] ; (should be 0.8)
+% M constrained sampling
+% R demo / tests
+% M cuts
+% M code organisation / refactor
+% R improving output of marginal and remove type error (Weight can be float in SC case or List of Lists in marginal case)
+% M compound assert/retract inference_SC
+% R p zero divisor
+% R theta splitting for marginal
+% M err if a functor's labels sum to >1'
+% M special sampling mit SC inference
+
+% - nested functors: st(qq(X)) : inference, sampling
 % - impure
 % - disjunction
 
@@ -30,6 +33,8 @@
 1/2 :: sst2(a).
 1/2 :: sst3(b).
 1/2 :: sst3(c).
+
+
 
 % --------------------
 
