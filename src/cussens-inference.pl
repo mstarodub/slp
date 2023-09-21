@@ -22,6 +22,10 @@ ground_to_var([GroundHead|GroundTail], UnifBag, [Var|VarListTail]) :-
     member((Var=GroundHead), UnifBag),
     ground_to_var(GroundTail, UnifBag, VarListTail).
 
+% transferring initial goal to list
+goal_to_list((G1, G2), [G1|GoalTail]) :- goal_to_list(G2, GoalTail).
+goal_to_list(G, [G]) :- G \= (_ , _).
+
     
 % example call: inference_marginal((s(X,Y),r(Y,Z)), Prob)
 % in the general case, one Variable (TODO: which?) is not part of the list in Weight but rather detemined by backtracking
@@ -104,8 +108,8 @@ free_bindings([TermHead|_], GroundList, FreeList, [Predicate]) :-
 
 
 p(G, RoundedResult) :-
-    %as_vars(G, GFree),
-    free_bindings([G], [], _, [GFree]),
+    goal_to_list(G, GList),
+    free_bindings(GList, [], _, [GFree]),
     z(G, Numerator, _),
     z(GFree, Denominator, _),
     Result is Numerator / Denominator,
