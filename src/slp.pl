@@ -17,27 +17,9 @@ replace_left([NewL|TailNewL], [_=R|Tail], Res) :-
     nonvar(NewL),
     replace_left(TailNewL, [_=R|Tail], Res).
 
-% replacing ground atoms with free variables according to the unification pattern in UnifBag
-ground_to_var([], _, []).
-ground_to_var([GroundHead|GroundTail], UnifBag, [Var|VarListTail]) :-
-    member((Var=GroundHead), UnifBag),
-    ground_to_var(GroundTail, UnifBag, VarListTail).
-
 % transferring initial goal to list
 goal_to_list((G1, G2), [G1|GoalTail]) :- goal_to_list(G2, GoalTail).
 goal_to_list(G, [G]) :- G \= (_ , _).
-
-inference_SC_test(G, Prob) :-
-    G \= (_, _),
-    clause(_::G, _).
-
-inference_SC_test((G1, G2), Prob) :-
-    clause(_::G1, _),
-    inference_SC_test(G2, Prob),
-    % checking if variables are still free (e.g. X=X), then VarList won't be empty
-    %term_variables(G, VarList),
-    %( VarList \= [] -> writeln('true,'); true),
-    p((G1, G2), Prob).
     
 inference_SC(G, Prob) :-
     G \= (_, _),
@@ -107,70 +89,53 @@ replace(Subterm0, Subterm, Term0, Term) :-
             Term =.. [F|Args]
     ).
 
-collect_grounds(Goal, GoalsTail, Res).
+replace_grounds(Term, [], [], Term) :- !. % no backtracking for base cases
+replace_grounds(Term, [GroundHead|GroundTail], [VarHead|VarTail], FreeTerm) :-
+    replace(GroundHead, VarHead, Term, ReplacedTerm),
+    replace_grounds(ReplacedTerm, GroundTail, VarTail, FreeTerm).
+
+% comment on cuts: prevent calling clauses further down when backtracking and therefore fail
+% breadth and depth base case: all subgoals of input goal have been processed
+collect_grounds([], [], []) :- !.
+% breadth recursion starting at depth base case:
+collect_grounds([], [RemainingHead|RemainingTail], GroundList) :-
+    collect_grounds([RemainingHead], RemainingTail, GroundList),
+    !.
+% depth recursion: handling variables
+collect_grounds([SubGoalHead|SubGoalTail], RemainingGoals, GroundList) :-
+    % SubGoalHead is a variable --> ignored
+    var(SubGoalHead),
+    !,
+    collect_grounds(SubGoalTail, RemainingGoals, GroundList).
+% depth recursion: handling ground atoms
+collect_grounds([SubGoalHead|SubGoalTail], RemainingGoals, [Functor|GroundTail]) :-
+    % SubGoalHead no variable as they were dealt with in previous clause (+!)
+    SubGoalHead =.. [Functor|Args],
+    % SubGoalHead is atomic and ground
+    Args = [],
+    !,
+    collect_grounds(SubGoalTail, RemainingGoals, GroundTail).
+% depth recursion: handling non-ground predicates
+collect_grounds([SubGoalHead|_], RemainingGoals, GroundList) :-
+    % SubGoalHead no variable as they were dealt with in previous clause (+!)
+    SubGoalHead =.. [_|Args],
+    Args \= [],
+    collect_grounds(Args, RemainingGoals, GroundList).
 
 
-% idea behind free_bindings:
-% destructure input term iteratively, ultimately reaching every ground atom that needs to be replaced by a free variable
-% based on current term structure three processing methods:
-%   variables: no replacement required --> appending to result list as left-most element 
-%   ground atoms: replacement required -->
-%       appending atom to GroundList so that it gets replaced in the base case,
-%       retrieving corresponding free variable from FreeList and append it as left-most element to result list
-%   predicates: no replacement required --> 
-%       destructuring with =.. and calling recursion on its arguments
-%       reassembling predicate after all inner arguments have been processed
-%       adding predicate (now containing only free variables) as left-most element to result list
-%
-% obstacles: Same bindings must be replaced with same variables --> first collecting all bindings in list and only then replacing them 
-%
-% for compound goals: both depth and breadth recursion needed
-%   depth recursion: decomposing a single goal
-%   breadth recursion: recursively processing all subgoals, starting at the left-most
-%   second to last argument: list making up depth result
-%   last argument: list making up breadth result === overall result  
-
-% breadth and depth base case: replacing all ground atoms in Ground with free variables
-free_bindings([], [], GroundList, FreeList, [], []) :- 
+free_bindings(FirstSubGoal, RemainingGoals, FreeGoals) :-
+    collect_grounds(FirstSubGoal, RemainingGoals, GroundList),
     % list_to_set to obtain same variable name for same binding
     list_to_set(GroundList, GroundSet),
     % for each ground atom in GroundSet get one fresh free variable
     length(GroundSet, GroundLength),
-    length(FreeSet, GroundLength),
-    unifiable(FreeSet, GroundSet, UnifBag),
-    % change ground atoms to variables according to pairing in UnifBag
-    ground_to_var(GroundList, UnifBag, FreeList).
-% breadth recursion starting at depth base case:
-free_bindings([], [RemainingHead|RemainingTail], GroundList, FreeList, [], BreadthResList) :-
-    free_bindings([RemainingHead], RemainingTail, GroundList, FreeList, NewDepthResList, BreadthResList).
-% depth recursion: handling variables
-free_bindings([TermHead|TermTail], RemainingTerms, GroundList, FreeList, [TermHead|DepthResTail], BreadthResList) :-
-    % TermHead is a variable
-    var(TermHead),
-    free_bindings(TermTail, RemainingTerms, GroundList, FreeList, DepthResTail, BreadthResList).
-% depth recursion: handling ground atoms
-free_bindings([TermHead|TermTail], RemainingTerms, GroundTail, FreeTail, [FreeHead|DepthResTail], BreadthResList) :-
-    % TermHead no variable (otherwise instantiation errors in =..)
-    nonvar(TermHead),
-    TermHead =.. [Functor|TList],
-    % TermHead is atomic and ground
-    TList = [],
-    free_bindings(TermTail, RemainingTerms, [Functor|GroundTail], [FreeHead|FreeTail], DepthResTail, BreadthResList).
-% depth recursion: handling non-ground predicates
-% result is appended to overall result list in right-most argument
-free_bindings([TermHead|_], RemainingTerms, GroundList, FreeList, [Predicate], [Predicate|BreadthResTail]) :-
-    % TermHead no variable (otherwise instantiation errors in =..)
-    nonvar(TermHead),
-    TermHead =.. [Functor|TList],
-    % mutual exclusivity of clauses preventing false results via backtracking (e.g. for free_bindings([f(a)], [], _, Free))
-    TList \= [],
-    free_bindings(TList, RemainingTerms, GroundList, FreeList, DepthResTail, BreadthResTail),
-    Predicate =.. [Functor|DepthResTail].
+    length(VarSet, GroundLength),
+    replace_grounds([FirstSubGoal|RemainingGoals], GroundSet, VarSet, FreeGoals).
 
 
 p(G, RoundedResult) :-
     goal_to_list(G, [GHead|GTail]),
-    free_bindings([GHead], GTail, [], _, _, GFreeList),
+    free_bindings([GHead], GTail, GFreeList),
     goal_to_list(GFree, GFreeList),
     z(G, Numerator, _),
     z(GFree, Denominator, _),
@@ -292,8 +257,9 @@ z(G, Weight, Depth) :-
 % unconstrained (loglinear) sampling
 sample_UC(Head) :-
     findall([Prob::Head, Body], clause((Prob :: Head), Body), ClauseBag),
+    % probabilisticly choosing a clause in ClauseBag --> binding Head and Body
     random_clause(Head, Body, ClauseBag),
-    % we just sample once for now
+    % we just sample once for now, i.e. sticking to the choice of random_clause
     !,
     sample_UC(Body).
 
@@ -311,6 +277,7 @@ sample_UC(G) :-
 
 random_clause(Head, Body, ClauseBag) :-
     transform_probabilities(ClauseBag, ShiftedClauseBag),
+    % generating random float between 0 and 1
     Rand is random_float,
     choose(ShiftedClauseBag, Rand, [Head, Body]).
 
@@ -322,6 +289,7 @@ choose([[ShiftedProb::ShiftedHead, Body]|Tail], SampleProb, Sample) :-
 
 % shift the probabilities so we can sample from a uniform distribution
 % implicit failure/base case:
+% probability of failure === 1 - sum of probabilities for successful cases
 transform_probabilities([[P::H, B]], [[P::H, B], Failure]) :-
     % need a head with the same functor and arity, but all free variables as arguments
     functor(H, FailureName, FailureArity),
@@ -337,6 +305,7 @@ transform_probabilities([[P1::H1, B1],[P2::H2, B2]|Tail], L) :-
 
 sample_SC(Head) :-
     findall([Prob::Head, Body], clause((Prob :: Head), Body), ClauseBag),
+    % probabilisticly choosing a clause in ClauseBag --> binding Head and Body
     random_clause(Head, Body, ClauseBag),
     % Head + Body ground; bind Prob
     clause((Prob :: Head), Body),
@@ -345,8 +314,11 @@ sample_SC(Head) :-
     -> !
     % if we fail in the above, preprocess the tree, rewriting probabilities
     ;   writeln([Prob::Head, Body]),
+        % sum of clause probabilities with current Head without the failed clause Prob::Head :- Body
+        % recursively all failing clauses get removed --> sum decreasing continuously
         sum_remaining(ClauseBag, Prob, 0, Denominator),
         writeln(Denominator),
+        % rewrite probabilities of remaining clauses proportional to the successful branches
         change_prob(ClauseBag, [Prob::Head, Body], Denominator)
     ).
 
@@ -359,17 +331,18 @@ sample_SC(G) :-
     G.
 
 change_prob([], [_::_, _], _).
-% failure -> 0
+% failed clause Prob::Head :- Body -> 0 probability
 change_prob([[Prob::Head, Body]|BagTail], [Prob::Head, Body], Denominator) :-
     writeln([Prob::Head, Body]),
-    retract(Prob::Head :- Body),
+    retract(Prob::Head :- Body), % TODO: will it work for ground clauses, too?
     assertz(0::Head :- Body),
     change_prob(BagTail, [Prob::Head, Body], Denominator).
 % otherwise -> adjust
+% TODO: why no backtracking of failed case to this clause?
 change_prob([[P::H, B]|BagTail], [Prob::Head, Body], Denominator) :-
     writeln(BagTail),
     retract(P::H :- B),
-    round_third(P/Denominator, Rounded).
+    round_third(P/Denominator, Rounded),
     assertz(Rounded::H :- B),
     change_prob(BagTail, [Prob::Head, Body], Denominator).
 
