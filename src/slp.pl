@@ -11,31 +11,47 @@
 % transferring initial goal to list
 goal_to_list((G1, G2), [G1|GoalTail]) :- goal_to_list(G2, GoalTail).
 goal_to_list(G, [G]) :- G \= (_ , _).
+
+% forcing backtracking over possible bindings for free variables in Goal
+bind_goal([]).
+bind_goal([GoalHead|GoalTail]) :-
+    clause((_::GoalHead), _),
+    bind_goal(GoalTail).
+
+inference_marginal(Goal, ProbRounded) :-
+    goal_to_list(Goal, GoalList),
+    bind_goal(GoalList),
+    goal_to_list(GoalBound, GoalList),
+    term_variables(GoalBound, VarList),
+    ( VarList \= [] -> writeln('true,'); true),
+    z(GoalBound, Prob),
+    round_third(Prob, ProbRounded).
+
+inference_SC_test(Goal, ProbRounded) :-
+    goal_to_list(Goal, GoalList),
+    bind_goal(GoalList),
+    goal_to_list(GoalBound, GoalList),
+    term_variables(GoalBound, VarList),
+    ( VarList \= [] -> writeln('true,'); true),
+    p(GoalBound, Prob),
+    round_third(Prob, ProbRounded).
     
 inference_SC(G, Prob) :-
     G \= (_, _),
     clause(_::G, _),
     % checking if variables are still free (e.g. X=X), then VarList won't be empty
-    writeln('xxx'),
     term_variables(G, VarList),
-    writeln('<<'),
     ( VarList \= [] -> writeln('true,'); true),
-    writeln('sdfsd'),
-    p(G, Prob),
-    writeln('aaaaaaaaaaaa').
+    p(G, Prob).
 
 % doesnt work for ground goals:
 % inference_SC((q(a), p(a)), P).
 inference_SC((G1,G2), Prob) :-
     gensym(reserved_newgoal, X),
     term_variables((G1, G2), VarList),
-    writeln('aaa'),
     NewHead =.. [X|VarList],
-    writeln('bbb'),
     assertz((1::NewHead :- (G1, G2))),
-    writeln('ccc'),
     inference_SC(NewHead, Prob),
-    writeln('ddd'),
     writeln(1::NewHead),
     ( VarList = [] ->
         retract(1::NewHead) ;
@@ -371,9 +387,11 @@ sum_remaining([[P::_, _]|BagTail], FailedP, Akk, Denominator) :-
 0.6 :: q(b).
 0.1 :: q(c).
 
-0.6 :: qq(X).
-0.2 :: qq(a).
-0.1 :: qq(b).
+0.6 :: dq(X).
+0.2 :: dq(a).
+
+5/10 :: dqq(a).
+3/10 :: dqq(b).
 
 0.5 :: compound(X) :- p(X), q(X).
 
@@ -382,7 +400,7 @@ sum_remaining([[P::_, _]|BagTail], FailedP, Akk, Denominator) :-
 0.2 :: f(X) :- fail.
 
 % XXX: p(cmp1(b), P). -> zero divisor
-0.5 :: cmp1(X, Y) :- qq(X), qq(Y).
+0.5 :: cmp1(X, Y) :- dq(X), dq(Y).
 
 0.5 :: cmp(X) :- p(X), q(X).
 

@@ -1,5 +1,4 @@
 % TODO
-% R inference_marginal(qq(X),P). ---> P = [[X=X, 0.6], [X=a, 0.2]] ; (should be 0.8)
 % M constrained sampling
 % ? bringing pack p/3 implementation for free query input (e.g. probs differ for t(X, X) and t(X,Y) on calling t(a,a) if clause t(a, g) exists)
 % ? motivate p/3 with a test case
@@ -7,27 +6,25 @@
 % R demo / tests
 % M cuts
 % M code organisation / refactor
-% R improving output of marginal and remove type error (Weight can be float in SC case or List of Lists in marginal case)
 % ? can sampling(G) call (for G either true or fail) be integrated in other cases? (both sampling_UC and sampling_SC)
 % M compound assert/retract inference_SC
-% R theta splitting for marginal
 % M err if a functor's labels sum to >1'
 % M special sampling mit SC inference
 
-% - nested functors: st(qq(X)) : inference, sampling
+% - nested functors: st(dqq(X)) : inference, sampling
 % - impure
 % - disjunction
 
-0.6 :: q(X).
-0.2 :: q(a).
+0.6 :: dq(X).
+0.2 :: dq(a).
 % we have implicit failure, so, additionally:
-% 0.2 :: q(X) :- fail.
+% 0.2 :: dq(X) :- fail.
 % each functor's probability labels must sum to 1
 % <1: implicit failure
 % >1: error out
 
-5/10 :: qq(a).
-3/10 :: qq(b).
+5/10 :: dqq(a).
+3/10 :: dqq(b).
 
 0.5 :: st2(X) :- stt2(X).
 0.5 :: st2(X) :- sst3(X).
@@ -41,33 +38,33 @@
 % --------------------
 
 % inference: marginal
-% forall X. what is P such that q(X) terminates successfully
+% forall X. what is P such that dq(X) terminates successfully
 % implementation: summation over bindings yields the denominator z in Cussen's p (for ground queries; for non-ground it [check this] corresponds to the denominator)
-% API: inference_marginal(q(X), P).
+% API: inference_marginal(dq(X), P).
 % ---> X = <binding>, P = <number>
-% inference_marginal(q(X), P).
+% inference_marginal(dq(X), P).
 % ---> X = Omega - {a}, P = 0.6.
 % ---> X = a, P = 0.8
-% inference_marginal(q(b), P).
+% inference_marginal(dq(b), P).
 % ---> X = b, P = 0.6
-% inference_marginal(qq(X), P).
+% inference_marginal(dqq(X), P).
 % ---> X = a, P = 5/10.
 % ---> X = b, P = 3/10.
-% [inference_marginal(q(a), P).
+% [inference_marginal(dq(a), P).
 % ---> P = 0.8.] <- the case where the query is ground is always determined by the corresponding result in the non-ground case
 
 % --------------------
 
 % inference: success-constrained
-% Given q(X) terminates successfully, what is the probability distribution of X as a random variable
+% Given dq(X) terminates successfully, what is the probability distribution of X as a random variable
 % this is just the P's for each variable binding.
 % implementation: Cussen's p
-%   the denominator z(q(X), P) gives P = 0.8 because [check this] that is the required normalization weight for the correct final result
-% inference_sc(q(X), P).
+%   the denominator z(dq(X), P) gives P = 0.8 because [check this] that is the required normalization weight for the correct final result
+% inference_sc(dq(X), P).
 % ---> X = a, P = 1
-% inference_sc(q(b), P).
+% inference_sc(dq(b), P).
 % ---> X = b, P = 0.75
-% inference_sc(qq(X), P).
+% inference_sc(dqq(X), P).
 % ---> X = a, P = 5/8
 % ---> X = b, P = 3/8
 
