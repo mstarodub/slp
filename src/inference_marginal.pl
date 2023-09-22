@@ -28,6 +28,49 @@ z(Goal, Weight),
 maplist(replace_left(VarList), Weight, ProbList).
 
 
+% base case
+z(true, 1) :- !. % preventing backtracking to clauses further down
 
-findall([Prob, G1, Body], clause((Prob :: G1), Body), UnifSet),
-        unifSet_rec(G1, G2, UnifSet, Weight, Depth)
+% compound base cases; simplifying conjunction
+% preventing backtracking to clauses further down
+z((G, true), Weight) :- z(G, Weight), !. % fires for G as body of a non-compound head
+z((true, G), Weight) :- z(G, Weight), !.
+
+% compound head
+z((G1, G2), Weight) :-
+    G1 \= true, % mutual exclusivity of goals
+    %optimised z computation (with var Depth)
+    % shared variable test
+    sub_term_shared_variables(G1, (G1, G2), SharedVars),
+    ( SharedVars = [] 
+    % no shared variables --> decomposition
+    ->  z(G1, Weight1),
+        z(G2, Weight2),
+        Weight is Weight1*Weight2
+    % shared variables --> computation of splitting substitution set
+    ;   % only ground terms make goals disjunct (e.g. we don't want Y=Y)
+        % collect all possible values of SharedVars in matching clause heads
+        % example: (G1, G2) === (s(X,Y), r(Y,Z))
+        % ---> SharedVars = [Y]
+        % ---> SubstitList = [[b],[c]]; in each entry list we have the bindings for all shared variables
+        findall(SharedVars, (clause((_ :: G1), _), ground(SharedVars)), SubstitList),
+        % SubstitSet is Theta, the set of splitting substitutions. in the (s(X,Y), r(Y,Z)) case, a substitution of Y= b or Y= c makes the Variables in G1, G2 disjoint
+        list_to_set(SubstitList, SubstitSet),
+        % put all possibilities for binding the shared variables into PairedVarBindings
+        maplist(unifiable(SharedVars), SubstitSet, PairedVarBindings),
+        substitSet_rec(G1, G2, PairedVarBindings, Weight)        
+    ),
+    !. % preventing backtracking to clauses further down
+
+% non-compound head
+z(G, Weight) :-
+    % mutual exclusivity of goals
+    G \= (_, _),
+    G \= true,
+
+    findall([Prob, G, Body], clause((Prob :: G), Body), UnifSet),
+    unifSet_rec(G, true, UnifSet, Weight).
+
+
+%findall([Prob, G1, Body], clause((Prob :: G1), Body), UnifSet),
+%        unifSet_rec(G1, G2, UnifSet, Weight, Depth)
