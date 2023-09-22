@@ -94,6 +94,18 @@ replace_grounds(Term, [GroundHead|GroundTail], [VarHead|VarTail], FreeTerm) :-
     replace(GroundHead, VarHead, Term, ReplacedTerm),
     replace_grounds(ReplacedTerm, GroundTail, VarTail, FreeTerm).
 
+% idea behind collect_grounds:
+% Same bindings will be replaced with same variables --> first collecting all bindings in list and only then replacing them 
+% destructure input term iteratively, ultimately reaching every ground atom that needs to be replaced by a free variable
+% based on current term structure three processing methods:
+%   variables: no replacement required --> ignored
+%   ground atoms: replacement required --> appending atom to GroundList so that it gets replaced later
+%   predicates: no replacement required --> destructuring with =.. and calling recursion on its arguments
+%
+% for compound goals: both depth and breadth recursion needed
+%   depth recursion: decomposing a single goal
+%   breadth recursion: recursively processing all subgoals, starting at the left-most
+
 % comment on cuts: prevent calling clauses further down when backtracking and therefore fail
 % breadth and depth base case: all subgoals of input goal have been processed
 collect_grounds([], [], []) :- !.
@@ -130,6 +142,7 @@ free_bindings(FirstSubGoal, RemainingGoals, FreeGoals) :-
     % for each ground atom in GroundSet get one fresh free variable
     length(GroundSet, GroundLength),
     length(VarSet, GroundLength),
+    % for every ground atom in input goal: replace it with free variable, respecting same values
     replace_grounds([FirstSubGoal|RemainingGoals], GroundSet, VarSet, FreeGoals).
 
 

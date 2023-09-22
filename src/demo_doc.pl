@@ -1,7 +1,8 @@
 % TODO
-% R free_bindings umschreiben für replace
 % R inference_marginal(qq(X),P). ---> P = [[X=X, 0.6], [X=a, 0.2]] ; (should be 0.8)
 % M constrained sampling
+% ? bringing pack p/3 implementation for free query input (e.g. probs differ for t(X, X) and t(X,Y) on calling t(a,a) if clause t(a, g) exists)
+% ? motivate p/3 with a test case
 % R demo / tests
 % M cuts
 % M code organisation / refactor
