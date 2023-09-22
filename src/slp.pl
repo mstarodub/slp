@@ -106,6 +106,16 @@ p(G, RoundedResult) :-
     Result is Numerator / Denominator,
     round_third(Result, RoundedResult).
 
+% Prob's differ for t(X, X) and t(X,Y) when calling t(a,a) if clause t(a, g) exists
+% --> need a way to pass goal + instantiations explicitly: p(t(X,Y), [X=a, Y=a], P).
+p(G, ArgList, RoundedResult) :-
+    copy_term(G, GFree),
+    unify_list(G, ArgList),
+    z(G, Numerator),
+    z(GFree, Denominator),
+    Result is Numerator / Denominator,
+    round_third(Result, RoundedResult).
+
 % rounds to third decimal
 round_third(Float, RoundedFloat) :-
     RoundedScaled is round(Float*1000),

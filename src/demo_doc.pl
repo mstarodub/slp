@@ -11,8 +11,7 @@
 % ? BUG: p(cmp1(b), P). -> zero divisor
 % ? twice repeated output of P=1 for inference_SC_test(dq(a),P).
 % ? no backtracking for inference_SC(cmp(X),P). (however, backtracking for G = s(X,Y), r(Y,Z) works...)
-% ? bringing back p/3 implementation for free query input (e.g. probs differ for t(X, X) and t(X,Y) on calling t(a,a) if clause t(a, g) exists)
-%   + motivate p/3 with a test case
+% ? motivate p/3 with a test case
 % ? backtracking for inference: test functionality scope of current implementation
 % R demo / tests
 % M err if a functor's labels sum to >1'
