@@ -1,15 +1,23 @@
 % TODO
-% M constrained sampling
-% ? bringing pack p/3 implementation for free query input (e.g. probs differ for t(X, X) and t(X,Y) on calling t(a,a) if clause t(a, g) exists)
-% ? motivate p/3 with a test case
+% M take another look at substit_rec, unifset_rec - why does unifset_rec unification never happen but for true = true?
+% M remove writeln calls
+% M sample_UC sometimes errors for compound:
+%   sample_UC((s(X,Y), r(Y,Z))).
+% M sample_SC always errors for compound:
+%   sample_SC((s(X,Y), r(Y,Z))).
+% M sample_SC/UC(s(X,Y)). sometimes errors
+% M test sample_SC for nonground + ground with arity >= 1
+% M sample_SC may need cuts
+% ? BUG: p(cmp1(b), P). -> zero divisor
+% ? twice repeated output of P=1 for inference_SC_test(dq(a),P).
+% ? no backtracking for inference_SC(cmp(X),P). (however, backtracking for G = s(X,Y), r(Y,Z) works...)
+% ? bringing back p/3 implementation for free query input (e.g. probs differ for t(X, X) and t(X,Y) on calling t(a,a) if clause t(a, g) exists)
+%   + motivate p/3 with a test case
 % ? backtracking for inference: test functionality scope of current implementation
 % R demo / tests
-% M cuts
-% M code organisation / refactor
-% ? can sampling(G) call (for G either true or fail) be integrated in other cases? (both sampling_UC and sampling_SC)
-% M compound assert/retract inference_SC
 % M err if a functor's labels sum to >1'
-% M special sampling mit SC inference
+% M sampling/inference (SC, UC): uniform output for goals that don't exist
+% M special sampling with SC inference
 
 % - nested functors: st(dqq(X)) : inference, sampling
 % - impure
