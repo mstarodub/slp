@@ -7,15 +7,6 @@
 %   normalized SLP (all clauses forming a predicate add up to 1)
 %   pure SLP (no non-prob. clauses)
 
-% when the VarList is exhausted, set the result to the singe remaining entry in the weight, that entry is the probability
-replace_left([], Remains, Remains).
-replace_left([NewL|TailNewL], [_=R|Tail], [NewL=R|Res]) :-
-    var(NewL),
-    replace_left(TailNewL, Tail, Res).
-% ignoring already globally bound variables s.t. lenght of binding list [_=R|Tail] equals list of new lefts [NewL|TailNewL]
-replace_left([NewL|TailNewL], [_=R|Tail], Res) :-
-    nonvar(NewL),
-    replace_left(TailNewL, [_=R|Tail], Res).
 
 % transferring initial goal to list
 goal_to_list((G1, G2), [G1|GoalTail]) :- goal_to_list(G2, GoalTail).
@@ -52,24 +43,6 @@ inference_SC((G1,G2), Prob) :-
         retract((1::NewHead :- (G1, G2)))
     ).
 
-% example call: inference_marginal((s(X,Y),r(Y,Z)), Prob)
-% in the general case, one Variable (TODO: which?) is not part of the list in Weight but rather detemined by backtracking
-inference_marginal(Goal, ProbList) :-
-    % example goal: (s(X,Y), r(Y,Z))
-    % ---> VarList === [X,Y,Z]
-    % after z call: VarList === [X,b,Z]
-    % because of that:
-    % preserving variable names for pretty output
-    % TODO: may order of vars in list differ from the order in the output list?
-    term_variables(Goal, VarList),
-    z(Goal, Weight, 0), 
-    % for the example goal of (s(X,Y), r(Y,Z)), we currently have
-    % Y=b,
-    % Weight = [[b=b, _=X, 0.14], [c=c, _=a, 0], [b=b, _=b, 0.04]]
-    % invariant: forall w in Weight. len(VarList - ground terms) === len(w - last element)
-    % replace_left then takes the variables from VarList and replaces the left hand '=' sides with them in order (for each w in Weight [is a list])
-    maplist(replace_left(VarList), Weight, ProbList).
-
 
 % assumptions:
 %   G is the goal with only free variables
@@ -93,6 +66,18 @@ replace_grounds(Term, [], [], Term) :- !. % no backtracking for base cases
 replace_grounds(Term, [GroundHead|GroundTail], [VarHead|VarTail], FreeTerm) :-
     replace(GroundHead, VarHead, Term, ReplacedTerm),
     replace_grounds(ReplacedTerm, GroundTail, VarTail, FreeTerm).
+
+% idea behind collect_grounds:
+% Same bindings will be replaced with same variables --> first collecting all bindings in list and only then replacing them 
+% destructure input term iteratively, ultimately reaching every ground atom that needs to be replaced by a free variable
+% based on current term structure three processing methods:
+%   variables: no replacement required --> ignored
+%   ground atoms: replacement required --> appending atom to GroundList so that it gets replaced later
+%   predicates: no replacement required --> destructuring with =.. and calling recursion on its arguments
+%
+% for compound goals: both depth and breadth recursion needed
+%   depth recursion: decomposing a single goal
+%   breadth recursion: recursively processing all subgoals, starting at the left-most
 
 % comment on cuts: prevent calling clauses further down when backtracking and therefore fail
 % breadth and depth base case: all subgoals of input goal have been processed
@@ -123,13 +108,14 @@ collect_grounds([SubGoalHead|_], RemainingGoals, GroundList) :-
     collect_grounds(Args, RemainingGoals, GroundList).
 
 
-free_bindings(FirstSubGoal, RemainingGoals, FreeGoals) :-
-    collect_grounds(FirstSubGoal, RemainingGoals, GroundList),
+free_bindings([FirstSubGoal], RemainingGoals, FreeGoals) :-
+    collect_grounds([FirstSubGoal], RemainingGoals, GroundList),
     % list_to_set to obtain same variable name for same binding
     list_to_set(GroundList, GroundSet),
     % for each ground atom in GroundSet get one fresh free variable
     length(GroundSet, GroundLength),
     length(VarSet, GroundLength),
+    % for every ground atom in input goal: replace it with free variable, respecting same values
     replace_grounds([FirstSubGoal|RemainingGoals], GroundSet, VarSet, FreeGoals).
 
 
@@ -137,8 +123,8 @@ p(G, RoundedResult) :-
     goal_to_list(G, [GHead|GTail]),
     free_bindings([GHead], GTail, GFreeList),
     goal_to_list(GFree, GFreeList),
-    z(G, Numerator, _),
-    z(GFree, Denominator, _),
+    z(G, Numerator),
+    z(GFree, Denominator),
     Result is Numerator / Denominator,
     round_third(Result, RoundedResult).
 
@@ -155,10 +141,9 @@ round_third(Float, RoundedFloat) :-
     RoundedScaled is round(Float*1000),
     RoundedFloat is RoundedScaled/1000. 
 
-% Akk is the Weight, can be a float or a List. zero depth base case for concatenation: need empty lists. Depth gets increased in each z recursion, not per unifSet_rec recursion
-unifSet_rec(_, _, [], [], Depth) :- nonvar(Depth), Depth = 0, !.
-unifSet_rec(_, _, [], 0, _) :- !. % base case cut: prevents further backtracking and final output "false"
-unifSet_rec(CurrentGoal, RemainingGoal, [UnifClause|UnifSetTail], Akk, Depth) :-
+
+unifSet_rec(_, _, [], 0) :- !. % base case cut: prevents further backtracking
+unifSet_rec(CurrentGoal, RemainingGoal, [UnifClause|UnifSetTail], Akk) :-
     % unifSet_rec recursion requires all subgoals to be as unbound as possible
     % free variable relations must be preserved, e.g. p(X), q(X) must become p(Y), q(Y)
     % -> copy everything but the current C (UnifClause)
@@ -171,22 +156,12 @@ unifSet_rec(CurrentGoal, RemainingGoal, [UnifClause|UnifSetTail], Akk, Depth) :-
     % e.g. [X=Y, Y=b]
     unifiable(CurrentGoal, ClauseHead, UnifBag),
     unify_helper(RemainingGoal, UnifBag), % TODO: how should unify_helper behave if variables in UnifBag have more unification options?
-    % incrementing Depth value for marginal inference when reaching new level for z recursion
-    ( nonvar(Depth) -> DepthNew is Depth+1; DepthNew = Depth),
-    z((ClauseBody, RemainingGoal), Weight, DepthNew),
-    unifSet_rec(CurrentGoalFree, RemainingGoalFree, UnifSetTailFree, Akknew, Depth),
-    ( nonvar(Depth), Depth = 0
-        % marginal inf toplevel
-        ->  BindingProb is ClauseProb*Weight,
-            round_third(BindingProb, BindingProbRound), % rounding probability occurring in output
-            % [X=Y, Y=b] <> [0.3] === [X=Y, Y=b, 0.3]
-            append(UnifBag, [BindingProbRound], AkkTemp),
-            append([AkkTemp], Akknew, Akk) % for all but the last element in unif set Akknew will be a list
-        % SC inf / marginal recursive
-        ;   Akk is ClauseProb*Weight + Akknew).
+    z((ClauseBody, RemainingGoal), Weight),
+    unifSet_rec(CurrentGoalFree, RemainingGoalFree, UnifSetTailFree, Akknew),
+    Akk is ClauseProb*Weight + Akknew.
 
-substitSet_rec(_, _, [], 0, _) :- !. % base case cut: prevents further backtracking and final output "false"
-substitSet_rec(CurrentGoal, RemainingGoal, [Substitutions|PairedVarBindingsTail], Akk, Depth) :-
+substitSet_rec(_, _, [], 0) :- !. % base case cut: prevents further backtracking
+substitSet_rec(CurrentGoal, RemainingGoal, [Substitutions|PairedVarBindingsTail], Akk) :-
     % substitSet_rec recursion requires all subgoals to be as unbound as possible
     % PairedVarBindings must also remain unbound, e.g. old: [X=a], [X=b] becomes [Y=b] instead of [a=b]
     % free variable relations must be preserved, e.g. p(X), q(X) must become p(Y), q(Y)
@@ -195,58 +170,55 @@ substitSet_rec(CurrentGoal, RemainingGoal, [Substitutions|PairedVarBindingsTail]
     % here, the third argument of substitSet_rec are suitable substitutions, as opposed to clauses in unifSet_rec
     unify_helper(CurrentGoal, Substitutions),
     unify_helper(RemainingGoal, Substitutions),
-    z(CurrentGoal, Weight1, Depth),
-    z(RemainingGoal, Weight2, Depth),
+    z(CurrentGoal, Weight1),
+    z(RemainingGoal, Weight2),
     % sum over all possible splitting substitutions
-    substitSet_rec(CurrentGoalFree, RemainingGoalFree, PairedVarBindingsTailFree, Akknew, Depth),
+    substitSet_rec(CurrentGoalFree, RemainingGoalFree, PairedVarBindingsTailFree, Akknew),
     Akk is Weight1*Weight2 + Akknew.
 
 % base case
-z(true, 1, _).
+z(true, 1) :- !. % preventing backtracking to clauses further down
 
 % compound base cases; simplifying conjunction
-% base case cuts: prevent further backtracking and final output "false"
-z((G, true), Weight, Depth) :- z(G, Weight, Depth), !. % fires for G as body of a non-compound head
-z((true, G), Weight, Depth) :- z(G, Weight, Depth), !.
+% preventing backtracking to clauses further down
+z((G, true), Weight) :- z(G, Weight), !. % fires for G as body of a non-compound head
+z((true, G), Weight) :- z(G, Weight), !.
 
 % compound head
-z((G1, G2), Weight, Depth) :-
+z((G1, G2), Weight) :-
     G1 \= true, % mutual exclusivity of goals
-    % marginal inference --> standard not optimised z computation (with nonvar Depth)
-    ( nonvar(Depth) 
-    ->  findall([Prob, G1, Body], clause((Prob :: G1), Body), UnifSet),
-        unifSet_rec(G1, G2, UnifSet, Weight, Depth)
-    % success constraint inference --> optimised z computation (with var Depth)
-    ;   % shared variable test
-        sub_term_shared_variables(G1, (G1, G2), SharedVars),
-        ( SharedVars = [] 
-        % no shared variables --> decomposition
-        ->  z(G1, Weight1, Depth),
-            z(G2, Weight2, Depth),
-            Weight is Weight1*Weight2
-        % shared variables --> computation of splitting substitution set
-        ;   % only ground terms make goals disjunct (e.g. we don't want Y=Y)
-            % collect all possible values of SharedVars in matching clause heads
-            % example: (G1, G2) === (s(X,Y), r(Y,Z))
-            % ---> SharedVars = [Y]
-            % ---> SubstitList = [[b],[c]]; in each entry list we have the bindings for all shared variables
-            findall(SharedVars, (clause((_ :: G1), _), ground(SharedVars)), SubstitList),
-            % SubstitSet is Theta, the set of splitting substitutions. in the (s(X,Y), r(Y,Z)) case, a substitution of Y= b or Y= c makes the Variables in G1, G2 disjoint
-            list_to_set(SubstitList, SubstitSet),
-            % put all possibilities for binding the shared variables into PairedVarBindings
-            maplist(unifiable(SharedVars), SubstitSet, PairedVarBindings),
-            substitSet_rec(G1, G2, PairedVarBindings, Weight, Depth)        
-        )
-    ).
+    %optimised z computation (with var Depth)
+    % shared variable test
+    sub_term_shared_variables(G1, (G1, G2), SharedVars),
+    ( SharedVars = [] 
+    % no shared variables --> decomposition
+    ->  z(G1, Weight1),
+        z(G2, Weight2),
+        Weight is Weight1*Weight2
+    % shared variables --> computation of splitting substitution set
+    ;   % only ground terms make goals disjunct (e.g. we don't want Y=Y)
+        % collect all possible values of SharedVars in matching clause heads
+        % example: (G1, G2) === (s(X,Y), r(Y,Z))
+        % ---> SharedVars = [Y]
+        % ---> SubstitList = [[b],[c]]; in each entry list we have the bindings for all shared variables
+        findall(SharedVars, (clause((_ :: G1), _), ground(SharedVars)), SubstitList),
+        % SubstitSet is Theta, the set of splitting substitutions. in the (s(X,Y), r(Y,Z)) case, a substitution of Y= b or Y= c makes the Variables in G1, G2 disjoint
+        list_to_set(SubstitList, SubstitSet),
+        % put all possibilities for binding the shared variables into PairedVarBindings
+        maplist(unifiable(SharedVars), SubstitSet, PairedVarBindings),
+        substitSet_rec(G1, G2, PairedVarBindings, Weight)        
+    ),
+    !. % preventing backtracking to clauses further down
 
 % non-compound head
-z(G, Weight, Depth) :-
+z(G, Weight) :-
     % mutual exclusivity of goals
     G \= (_, _),
     G \= true,
 
     findall([Prob, G, Body], clause((Prob :: G), Body), UnifSet),
-    unifSet_rec(G, true, UnifSet, Weight, Depth).
+    unifSet_rec(G, true, UnifSet, Weight).
+
 
 % loglinear: ähnlich zum v1, nur ohne inference call
 % unification-constrained: in der effizienz zwischen loglinear und backtrackable

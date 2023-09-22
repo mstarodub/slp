@@ -1,13 +1,15 @@
 % TODO
-% R free_bindings umschreiben für replace
 % R inference_marginal(qq(X),P). ---> P = [[X=X, 0.6], [X=a, 0.2]] ; (should be 0.8)
 % M constrained sampling
+% ? bringing pack p/3 implementation for free query input (e.g. probs differ for t(X, X) and t(X,Y) on calling t(a,a) if clause t(a, g) exists)
+% ? motivate p/3 with a test case
+% ? backtracking for inference: test functionality scope of current implementation
 % R demo / tests
 % M cuts
 % M code organisation / refactor
 % R improving output of marginal and remove type error (Weight can be float in SC case or List of Lists in marginal case)
+% ? can sampling(G) call (for G either true or fail) be integrated in other cases? (both sampling_UC and sampling_SC)
 % M compound assert/retract inference_SC
-% R p zero divisor
 % R theta splitting for marginal
 % M err if a functor's labels sum to >1'
 % M special sampling mit SC inference
