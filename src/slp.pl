@@ -10,15 +10,15 @@
 % used for propagating bindings of CurrentGoal to RemainingGoal
 % takes List in the form [X=a, Y=b, ...]
 % TODO: should be this ideally, but issues in e.g. unifSet_rec
-% unify_list(_, []) :- !.
-% unify_list(Term, [Var=Binding|BagTail]) :-
-%     Var=Binding,
-%     unify_list(Term, BagTail).
-% https://stackoverflow.com/a/64722773
 unify_list(_, []) :- !.
 unify_list(Term, [Var=Binding|BagTail]) :-
-    findall(Term, Var=Binding, [Term]),
+    Var=Binding,
     unify_list(Term, BagTail).
+% https://stackoverflow.com/a/64722773
+%unify_list(_, []) :- !.
+%unify_list(Term, [Var=Binding|BagTail]) :-
+%    findall(Term, Var=Binding, [Term]),
+%    unify_list(Term, BagTail).
 
 % other predicates analyzing and replacing (sub)terms operate on lists
 % rewrites conjuncts to elements
@@ -79,6 +79,8 @@ bind_goal([GoalHead|GoalTail]) :-
     clause((_::GoalHead), _),
     bind_goal(GoalTail).
 
+% ----- BEGIN: optimised inference using goal splitting -----
+
 inference_marginal(Goal, ProbRounded) :-
     goal_to_list(Goal, GoalList),
     bind_goal(GoalList),
@@ -99,14 +101,16 @@ inference_SC(Goal, ProbRounded) :-
 
 p(G, RoundedResult) :-
     goal_to_list(G, GList),
-    free_up_bindings(GList, GFreeList),
+    % variables of G and GFree must also differ, otherwise they are bound in first z call and no longer free in second one
+    copy_term(GList, GListCopy),
+    free_up_bindings(GListCopy, GFreeList),
     goal_to_list(GFree, GFreeList),
     z(G, Numerator),
     z(GFree, Denominator),
     Result is Numerator / Denominator,
     round_third(Result, RoundedResult).
 
-% Prob's differ for t(X, X) and t(X,Y) when calling t(a,a) if clause t(a, g) exists
+% Prob's differ for t(X, X) and t(X,Y) when calling t(a,a) if clause t(a,b) exists
 % --> need a way to pass goal + instantiations explicitly: p(t(X,Y), [X=a, Y=a], P).
 p(G, ArgList, RoundedResult) :-
     copy_term(G, GFree),
@@ -121,37 +125,33 @@ round_third(Float, RoundedFloat) :-
     RoundedScaled is round(Float*1000),
     RoundedFloat is RoundedScaled/1000.
 
-% unifSet_rec and substitSet_rec recursion require all subgoals
-% to be as unbound as possible. TODO: which subgoals?
-% free variable identifications must be preserved, e.g. p(X), q(X) --> p(Y), q(Y)
-
-unifSet_rec(_, _, [], 0).
-unifSet_rec(CurrentGoal, RemainingGoal, [[CProb, CHead, CBody]|UnifSetTail], Akk) :-
-    % copy everything but the current C
-    copy_term((CurrentGoal,RemainingGoal, UnifSetTail), (CurrentGoalFree,RemainingGoalFree, UnifSetTailFree)),
-    % instantiation of variables for the current C, e.g. [X=Y, Y=b]
-    unifiable(CurrentGoal, CHead, UnifBag),
-    % TODO: how should we unify if variables in UnifBag have more unification options?
-    unify_list(RemainingGoal, UnifBag),
-    z((CBody, RemainingGoal), Weight),
-    unifSet_rec(CurrentGoalFree, RemainingGoalFree, UnifSetTailFree, Akknew),
+unifSet_rec(_, [], 0).
+unifSet_rec(CurrentGoal, [[CProb, CHead, CBody]|UnifSetTail], Akk) :-
+    % copy everything but the current C as for next iteration free variables must remain unbound
+    % variable identifications must be preserved, e.g. p(X), q(X) --> p(Y), q(Y)
+    copy_term((CurrentGoal,UnifSetTail), (CurrentGoalFree,UnifSetTailFree)),
+    % binding variables according to current C in UnifSet (--> only one binding choice), e.g. [X=Y, Y=b]
+    CurrentGoal = CHead,
+    z((CBody, true), Weight),
+    unifSet_rec(CurrentGoalFree, UnifSetTailFree, Akknew),
     Akk is CProb*Weight + Akknew.
 
 % third argument are suitable substitutions, as opposed to clauses in unifSet_rec
 substitSet_rec(_, _, [], 0).
 substitSet_rec(CurrentGoal, RemainingGoal, [Substitutions|PairedVarBindingsTail], Akk) :-
-    % PairedVarBindings must also remain unbound
-    % e.g. old: [X=a], [X=b] becomes [Y=b] instead of [a=b]
+    % for next iteration free variables in CurrentGoal, RemainingGoal and PairedVarBindingsTail must remain unbound --> copy_term
+    % variable identifications must be preserved, e.g. p(X), q(X) --> p(Y), q(Y)
+    % e.g. for PairedVarBindings old: [[X=a], [X=b]] becomes [[Y=b]] instead of [[a=b]]
     copy_term((CurrentGoal,RemainingGoal, PairedVarBindingsTail), (CurrentGoalFree,RemainingGoalFree, PairedVarBindingsTailFree)),
+    % appropriate variable binding in CurrentGoal is propagated to variables in RemainingGoal --> calling unify_list on CurrentGoal suffices
     unify_list(CurrentGoal, Substitutions),
-    unify_list(RemainingGoal, Substitutions),
     z(CurrentGoal, Weight1),
     z(RemainingGoal, Weight2),
     % sum over all possible splitting substitutions
     substitSet_rec(CurrentGoalFree, RemainingGoalFree, PairedVarBindingsTailFree, Akknew),
     Akk is Weight1*Weight2 + Akknew.
 
-% base cases, prevent backtracking to other clauses
+% base cases, prevent backtracking to other clauses further down
 z(true, 1) :- !.
 % fires when e.g. G is body of non-compound head
 z((G, true), Weight) :- z(G, Weight), !.
@@ -182,13 +182,75 @@ z((G1, G2), Weight) :-
         substitSet_rec(G1, G2, PairedVarBindings, Weight)
     ).
 
-% TODO: give example when this fires
+% G non-compound and non-trivial head
 z(G, Weight) :-
     % mutual exclusivity of goals
     G \= (_, _),
     G \= true,
     findall([Prob, G, Body], clause((Prob :: G), Body), UnifSet),
-    unifSet_rec(G, true, UnifSet, Weight).
+    % always calling unifSet_rec with just one subgoal left
+    % entire goal decomposition happened in z-call for compound goals and substitSet_rec
+    unifSet_rec(G, UnifSet, Weight).
+
+% ----- END: optimised inference -----
+
+
+% ----- BEGIN: standard inference -----
+
+inference_SC_unoptim(Goal, ProbRounded) :-
+    goal_to_list(Goal, GoalList),
+    bind_goal(GoalList),
+    goal_to_list(GoalBound, GoalList),
+    term_variables(GoalBound, VarList),
+    ( VarList \= [] -> writeln('true,'); true),
+    p_unoptim(GoalBound, Prob),
+    round_third(Prob, ProbRounded).
+
+p_unoptim(G, RoundedResult) :-
+    goal_to_list(G, GList),
+    % variables of G and GFree must also differ, otherwise they are bound in first z call and no longer free in second one
+    copy_term(GList, GListCopy),
+    free_up_bindings(GListCopy, GFreeList),
+    goal_to_list(GFree, GFreeList),
+    z_unoptim(G, Numerator),
+    z_unoptim(GFree, Denominator),
+    Result is Numerator / Denominator,
+    round_third(Result, RoundedResult).
+
+unifSet_rec_unoptim(_, _, [], 0).
+unifSet_rec_unoptim(CurrentGoal, RemainingGoal, [[CProb, CHead, CBody]|UnifSetTail], Akk) :-
+    % copy everything but the current C as for next iteration free variables must remain unbound
+    % variable identifications must be preserved, e.g. p(X), q(X) --> p(Y), q(Y)
+    copy_term((CurrentGoal,RemainingGoal, UnifSetTail), (CurrentGoalFree,RemainingGoalFree, UnifSetTailFree)),
+    % binding variables according to current C in UnifSet (--> only one binding choice), e.g. [X=Y, Y=b]
+    % binding is propagated to variables in Remaining Goal
+    CurrentGoal = CHead,
+    z_unoptim((CBody, RemainingGoal), Weight),
+    unifSet_rec_unoptim(CurrentGoalFree, RemainingGoalFree, UnifSetTailFree, Akknew),
+    Akk is CProb*Weight + Akknew.
+
+% base cases, prevent backtracking to other clauses
+z_unoptim(true, 1) :- !.
+% fires when e.g. G is body of non-compound head
+z_unoptim((G, true), Weight) :- z_unoptim(G, Weight), !.
+z_unoptim((true, G), Weight) :- z_unoptim(G, Weight), !.
+
+z_unoptim((G1, G2), Weight) :-
+    % mutual exclusivity of goals
+    G1 \= true,
+    findall([Prob, G1, Body], clause((Prob :: G1), Body), UnifSet),
+    unifSet_rec_unoptim(G1, G2, UnifSet, Weight).
+
+% G non-compound and non-trivial head
+z_unoptim(G, Weight) :-
+    % mutual exclusivity of goals
+    G \= (_, _),
+    G \= true,
+    findall([Prob, G, Body], clause((Prob :: G), Body), UnifSet),
+    unifSet_rec_unoptim(G, true, UnifSet, Weight).
+
+% ----- END: standard inference -----
+
 
 % unconstrained loglinear sampling
 sample_UC(Head) :-
