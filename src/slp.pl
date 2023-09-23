@@ -76,7 +76,12 @@ free_up_bindings(Goal, FreeGoals) :-
 % forces backtracking over possible bindings for free variables in goal
 bind_goal([]).
 bind_goal([GoalHead|GoalTail]) :-
-    clause((_::GoalHead), _),
+    clause((_::GoalHead), Body),
+    term_variables(GoalHead, VarList),
+    ( VarList \= []
+    ->  goal_to_list(Body, BodyList),
+        bind_goal(BodyList)
+    ;   true),
     bind_goal(GoalTail).
 
 % ----- BEGIN: optimised inference using goal splitting -----
@@ -196,6 +201,26 @@ z(G, Weight) :-
 
 
 % ----- BEGIN: standard inference -----
+
+% removing all elements of a list that are subsumed by more general terms
+% e.g. [[X,b], [b,b]] --> [[X,b]]
+remove_subsumed([], []).
+remove_subsumed([Head|Tail], ResList) :-
+    % test Head against entire Tail for subsumption
+    remove(Head, Tail, [Candidate|ResList]),
+    remove_subsumed(Tail, ResList).
+
+remove(Candidate, [], [Candidate]).
+remove(Candidate, [Head|Tail], ResList) :-
+    ( subsumes_chk(Candidate, Head)
+    % Candidate more generic than Head --> kept in ResList
+    -> remove(Candidate, Tail, [Candidate|ResList])
+    % Candidate more specific than Head --> not added to ResList
+    ;   subsumes_chk(Head, Candidate)
+        -> ResList = [Head|Tail]
+        % no comparison possible
+        ; ResList = [Candidate, Head|Tail]  
+    ).
 
 inference_SC_unoptim(Goal, ProbRounded) :-
     goal_to_list(Goal, GoalList),

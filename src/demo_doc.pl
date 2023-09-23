@@ -1,4 +1,5 @@
 % TODO
+% R rounding inconsistent for s(a,b),r(b,b) between inference_SC and inference_SC_unoptim
 % M take another look at substit_rec, unifset_rec - why does unifset_rec unification never happen but for true = true?
 % M remove writeln calls
 % M sample_UC sometimes errors for compound:
