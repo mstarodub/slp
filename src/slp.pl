@@ -337,6 +337,13 @@ sample_UC(Head) :-
     random_clause(Head, Body, ClauseBag),
     % sample once - stick to choice of random_clause
     !,
+    % Head + Body ground; bind Prob
+    (   clause((Prob :: Head), Body)
+    ->  true
+        % no such clause --> user asked for impossible compound case
+        %   e.g. sample_UC((s(X,Y), r(Y,Z))).
+    ;   fail
+    ),
     sample_UC(Body).
 
 sample_UC((G1, G2)) :-
@@ -365,6 +372,8 @@ choose([[ShiftedProb::ShiftedHead, Body]|Tail], SampleProb, Sample) :-
     ).
 
 % shift probabilities so we can sample from uniform distribution
+% impossible case
+transform_probabilities([], []) :- fail.
 % implicit failure/base case:
 % probability of failure === 1 - sum of probabilities for successful cases
 transform_probabilities([[P::H, B]], [[P::H, B], Failure]) :-
@@ -372,7 +381,9 @@ transform_probabilities([[P::H, B]], [[P::H, B], Failure]) :-
     functor(H, FailureName, FailureArity),
     length(K, FailureArity),
     FailureH =.. [FailureName|K],
-    Failure = [1-P::FailureH, fail].
+    % need it in SC sampling for rewriting the tree
+    assertz(1-P::FailureH :- fail),
+    Failure = [1::FailureH, fail].
 transform_probabilities([[P1::H1, B1],[P2::H2, B2]|Tail], L) :-
     TransfromedProb is P1 + P2,
     transform_probabilities([[TransfromedProb::H2, B2]|Tail], TempL),
@@ -382,38 +393,44 @@ transform_probabilities([[P1::H1, B1],[P2::H2, B2]|Tail], L) :-
 sample_SC(Head) :-
     findall([Prob::Head, Body], clause((Prob :: Head), Body), ClauseBag),
     random_clause(Head, Body, ClauseBag),
-    % Head + Body ground; bind Prob
-    clause((Prob :: Head), Body),
     !,
+    % Head + Body ground; bind Prob
+    (   clause((Prob :: Head), Body)
+    ->  true
+        % no such clause --> user asked for impossible compound case
+        %   e.g. sample_SC((s(X,c), r(c,Z))).
+    ;   fail
+    ),
+    % on failure, preprocess the tree, rewriting probabilities
     (   sample_SC(Body)
     ->  !
-    % if we fail in the above, preprocess the tree, rewriting probabilities
-    ;   writeln([Prob::Head, Body]),
+    ;   % need a fresh ClauseBag, failure might have been encountered + asserted
+        findall([ProbNew::Head, BodyNew], clause((ProbNew :: Head), BodyNew), ClauseBagNew),
         % probabilities of current Head without the failed clause Prob::Head :- Body
-        sum_remaining(ClauseBag, Prob, 0, Denominator),
+        sum_remaining(ClauseBagNew, Prob, 0, Denominator),
         writeln(Denominator),
         % rewrite probabilities of remaining clauses proportional to remaining branches
-        change_prob(ClauseBag, [Prob::Head, Body], Denominator)
+        change_prob(ClauseBagNew, [Prob::Head, Body], Denominator)
     ).
 
 sample_SC((G1, G2)) :-
+    !,
     sample_SC(G1),
     sample_SC(G2).
 
 sample_SC(G) :-
+    !,
     G.
 
 change_prob([], [_::_, _], _).
 % failed clause Prob::Head :- Body --> 0 probability
 change_prob([[Prob::Head, Body]|BagTail], [Prob::Head, Body], Denominator) :-
-    writeln([Prob::Head, Body]),
     retract(Prob::Head :- Body),
     % assertz(0::Head :- Body),
     change_prob(BagTail, [Prob::Head, Body], Denominator).
 % otherwise --> adjust
 % no backtracking of failed case to this because clause with that Prob was retracted
 change_prob([[P::H, B]|BagTail], [Prob::Head, Body], Denominator) :-
-    writeln(BagTail),
     retract(P::H :- B),
     round_third(P/Denominator, Rounded),
     assertz(Rounded::H :- B),
@@ -424,16 +441,6 @@ sum_remaining([], FailedP, Akk, Res) :-
 sum_remaining([[P::_, _]|BagTail], FailedP, Akk, Res) :-
     Akknew is Akk + P,
     sum_remaining(BagTail, FailedP, Akknew, Res).
-
-check_unitarity_aux(Head) :-
-    findall([Prob::Head, Body], clause((Prob :: Head), Body), ClauseBag),
-    sum_remaining(ClauseBag, 0, 0, Res),
-    writeln(Head),
-    Res > 1,
-    write(user_error, "Probabilities over heads of functor "),
-    write(user_error, Head),
-    write(user_error, "don't sum to 1"),
-    halt.
 
 aux_unitarity_sumfunctors([], _, _, []).
 aux_unitarity_sumfunctors([[Prob::Head]|Tail], PrevFname, Akk, Res) :-
