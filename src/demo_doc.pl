@@ -1,5 +1,5 @@
 % TODO
-% M remove writeln calls
+% M,R remove writeln calls
 % M sample_UC sometimes errors for compound:
 %   sample_UC((s(X,Y), r(Y,Z))).
 % M sample_SC always errors for compound:
@@ -56,17 +56,6 @@
 1/2 :: sst2(a).
 1/2 :: sst3(b).
 1/2 :: sst3(c).
-
-% --------------------
-
-% Test for demo showcasing scope of project
-%
-% requiring both unifSet_rec and substitSet_rec for optimised inference
-% compound and non-compound goals
-% ground, partially ground and free goals
-% dependent and independent goals
-% backtracking only for top level; also backtracking for body level
-%
 
 
 
