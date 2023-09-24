@@ -20,6 +20,10 @@ unify_list(Term, [Var=Binding|BagTail]) :-
 %    findall(Term, Var=Binding, [Term]),
 %    unify_list(Term, BagTail).
 
+generate_substits(SubstitUnground, UnifyList, SubstitCopy) :-
+    copy_term((SubstitUnground, UnifyList), (SubstitCopy, UnifyCopy)),
+    unify_list(SubstitCopy, UnifyCopy).
+
 % other predicates analyzing and replacing (sub)terms operate on lists
 % rewrites conjuncts to elements
 goal_to_list((G1, G2), [G1|GoalTail]) :- goal_to_list(G2, GoalTail).
@@ -84,6 +88,25 @@ bind_goal([GoalHead|GoalTail]) :-
     ;   true),
     bind_goal(GoalTail).
 
+ground_substits([], _, []).
+ground_substits([[SharedVars, SubstitArgs]|SubstitsArgsTail], [Functor|_], AllSubstits) :-
+    % grounding remaining free SharedVars based on bindings the body of the head GoalSubstit can take
+    % e.g. GoalSubstit = s(X,b)
+    GoalSubstit =.. [Functor|SubstitArgs],
+    % recursively finding all possible bindings for free SharedVars
+    % e.g. BindingBag = [[a,b], [b,b], [c,b], [b,b]] for SharedVars X, Y with Y=b, i.e. SharedVars = [X,b]
+    findall(SharedVars, bind_goal([GoalSubstit]), BindingBag),
+    % pairing variables with corresponding binding
+    % e.g. PairedVarBindings = [[X=a], [X=b], [X=c], [X=b]]
+    maplist(unifiable(SharedVars), BindingBag, PairedVarBindings),
+    % based on PairedVarBindings generate new subsitution lists
+    % e.g. GeneratedSubstits = [[a,b], [b,b], [c,b], [b,b]]
+    % note: BindingBag and Generated Substits differ if SubstitArgs contains variables or bindings of variables not shared
+    maplist(generate_substits(SubstitArgs), PairedVarBindings, GeneratedSubstits),
+    % processing further free or partially ground SubstitArgs
+    ground_substits(SubstitsArgsTail, [Functor|_], MoreSubstits),
+    append(GeneratedSubstits, MoreSubstits, AllSubstits).
+
 % ----- BEGIN: optimised inference using goal splitting -----
 
 inference_marginal(Goal, ProbRounded) :-
@@ -112,7 +135,11 @@ p(G, RoundedResult) :-
     goal_to_list(GFree, GFreeList),
     z(G, Numerator),
     z(GFree, Denominator),
-    Result is Numerator / Denominator,
+    % rounding to fourth decimal for optimised and unoptimised inference results to equal for three decimals
+    % e.g. s(a,b),r(b,b) would otherwise result in 0.263 and 0.262 respectively
+    round_fourth(Numerator, NumeratorRounded),
+    round_fourth(Denominator, DenominatorRounded),
+    Result is NumeratorRounded / DenominatorRounded,
     round_third(Result, RoundedResult).
 
 % Prob's differ for t(X, X) and t(X,Y) when calling t(a,a) if clause t(a,b) exists
@@ -122,13 +149,21 @@ p(G, ArgList, RoundedResult) :-
     unify_list(G, ArgList),
     z(G, Numerator),
     z(GFree, Denominator),
-    Result is Numerator / Denominator,
+    % rounding to fourth decimal for optimised and unoptimised inference results to equal for three decimals 
+    % e.g. s(a,b),r(b,b) would otherwise result in 0.263 and 0.262 respectively
+    round_fourth(Numerator, NumeratorRounded),
+    round_fourth(Denominator, DenominatorRounded),
+    Result is NumeratorRounded / DenominatorRounded,
     round_third(Result, RoundedResult).
 
 % rounds to third decimal
 round_third(Float, RoundedFloat) :-
     RoundedScaled is round(Float*1000),
     RoundedFloat is RoundedScaled/1000.
+% rounds to fourth decimal
+round_fourth(Float, RoundedFloat) :-
+    RoundedScaled is round(Float*10000),
+    RoundedFloat is RoundedScaled/10000.
 
 unifSet_rec(_, [], 0).
 unifSet_rec(CurrentGoal, [[CProb, CHead, CBody]|UnifSetTail], Akk) :-
@@ -172,13 +207,22 @@ z((G1, G2), Weight) :-
         z(G2, Weight2),
         Weight is Weight1*Weight2
     % shared variables --> computation of Theta, the set of splitting substitutions
-    ;   % only ground terms make goals disjunct (e.g. we don't want Y=Y)
-        % collect all possible values of SharedVars in matching clause heads
-        % example: (G1, G2) = (s(X,Y), r(Y,Z))
-        % --> SharedVars = [Y]
-        % --> SubstitList = [[b],[c]]
-        %   (in each entry list we have the bindings for all shared variables)
-        findall(SharedVars, (clause((_ :: G1), _), ground(SharedVars)), SubstitList),
+    ;   % only ground terms make goals disjunct: first collect all possible ground values of SharedVars in matching clause heads
+        % example: (G1, G2) = (s(X,Y), r(Y,X))
+        % --> SharedVars = [X,Y]
+        % --> SubstitListGround = [[a,c],[b,b],[b,a]]
+        %   (in each list element we have the bindings for all shared variables)
+        findall(SharedVars, (clause((_ :: G1), _), ground(SharedVars)), SubstitListGround),
+        % collect substitutions containing free variables as well and bind them
+        % --> SubstitListUnground = [[[X,b], [X,b]]]; note: Y in SharedVars entry was already bound to b
+        findall([SharedVars, Args], (clause((_ :: G1), _), G1 =.. [_|Args], \+ ground(SharedVars)), SubstitListUnground),
+        G1 =.. [Functor|_],
+        % grounding remaining free shared variables
+        % e.g. grounding X to a, b and c respectively
+        % --> SubstitListGrounded =  [[a,b], [b,b], [c,b], [b,b]]
+        ground_substits(SubstitListUnground, [Functor|_], SubstitListGrounded),
+        % concatenate previously ground and just grounded lists
+        append(SubstitListGround, SubstitListGrounded, SubstitList),
         % SubstitSet is now Theta
         % in the case of (s(X,Y), r(Y,Z)), a substitution of Y=b or Y=c makes Vars in G1, G2 disjoint
         list_to_set(SubstitList, SubstitSet),
@@ -202,30 +246,6 @@ z(G, Weight) :-
 
 % ----- BEGIN: standard inference -----
 
-% removing all elements of UnifSet that are subsumed by more general terms
-% e.g. [[Prob1, s(X,b), Body1], [Prob2, s(b,b), Body2]] --> [[Prob1, s(X,b), Body1]]
-remove_subsumed([], ResList, ResList).
-remove_subsumed([[_, ProbandHead, _]|ProbandTail], ReferenceList, ResList) :-
-    % find possible terms in ReferenceList subsuming ProbandHead
-    findall(ReferenceHead, (member([_, ReferenceHead, _], ReferenceList), subsumes_chk(ReferenceHead, ProbandHead)), GenericBag),
-    (unifiable(GenericBag, [ProbandHead], _)
-    % no term (except for ProbandHead itself )is more general --> proband kept
-    ->  remove_subsumed(ProbandTail, ReferenceList, ResList)
-    % at least one term is more general --> remove proband
-    ;   delete_variant(ReferenceList, ProbandHead, NewReferenceList),
-        remove_subsumed(ProbandTail, NewReferenceList, ResList)
-    ).
-
-% slightly modified version of delete/3 for variants, i.e. equality up to variable name
-% https://www.swi-prolog.org/pldoc/doc/_SWI_/library/lists.pl?show=src#delete/3
-delete_variant([], _, []).
-delete_variant([[ElemProb,ElemHead,ElemBody]|Tail], Del, Result) :-
-    (   ElemHead =@= Del
-    ->  delete_variant(Tail, Del, Result)
-    ;   Result = [[ElemProb,ElemHead,ElemBody]|Rest],
-        delete_variant(Tail, Del, Rest)
-    ).
-
 inference_SC_unoptim(Goal, ProbRounded) :-
     goal_to_list(Goal, GoalList),
     bind_goal(GoalList),
@@ -243,14 +263,18 @@ p_unoptim(G, RoundedResult) :-
     goal_to_list(GFree, GFreeList),
     z_unoptim(G, Numerator),
     z_unoptim(GFree, Denominator),
-    Result is Numerator / Denominator,
+    % rounding to fourth decimal for optimised and unoptimised inference results to equal for three decimals 
+    % e.g. s(a,b),r(b,b) would otherwise result in 0.263 and 0.262 respectively
+    round_fourth(Numerator, NumeratorRounded),
+    round_fourth(Denominator, DenominatorRounded),
+    Result is NumeratorRounded / DenominatorRounded,
     round_third(Result, RoundedResult).
 
 unifSet_rec_unoptim(_, _, [], 0).
 unifSet_rec_unoptim(CurrentGoal, RemainingGoal, [[CProb, CHead, CBody]|UnifSetTail], Akk) :-
     % copy everything but the current C as for next iteration free variables must remain unbound
     % variable identifications must be preserved, e.g. p(X), q(X) --> p(Y), q(Y)
-    copy_term((CurrentGoal,RemainingGoal, UnifSetTail), (CurrentGoalFree,RemainingGoalFree, UnifSetTailFree)),
+    copy_term((CurrentGoal, RemainingGoal, UnifSetTail), (CurrentGoalFree, RemainingGoalFree, UnifSetTailFree)),
     % binding variables according to current C in UnifSet (--> only one binding choice), e.g. [X=Y, Y=b]
     % binding is propagated to variables in Remaining Goal
     CurrentGoal = CHead,
@@ -259,7 +283,7 @@ unifSet_rec_unoptim(CurrentGoal, RemainingGoal, [[CProb, CHead, CBody]|UnifSetTa
     Akk is CProb*Weight + Akknew.
 
 % base cases, prevent backtracking to other clauses
-z_unoptim(true, 1) :- !.
+z_unoptim(true, 1).
 % fires when e.g. G is body of non-compound head
 z_unoptim((G, true), Weight) :- z_unoptim(G, Weight), !.
 z_unoptim((true, G), Weight) :- z_unoptim(G, Weight), !.
@@ -268,8 +292,7 @@ z_unoptim((G1, G2), Weight) :-
     % mutual exclusivity of goals
     G1 \= true,
     findall([Prob, G1, Body], clause((Prob :: G1), Body), UnifSet),
-    remove_subsumed(UnifSet, UnifSet, UnifSetMostGeneral),
-    unifSet_rec_unoptim(G1, G2, UnifSetMostGeneral, Weight).
+    unifSet_rec_unoptim(G1, G2, UnifSet, Weight).
 
 % G non-compound and non-trivial head
 z_unoptim(G, Weight) :-
@@ -277,8 +300,7 @@ z_unoptim(G, Weight) :-
     G \= (_, _),
     G \= true,
     findall([Prob, G, Body], clause((Prob :: G), Body), UnifSet),
-    remove_subsumed(UnifSet, UnifSet, UnifSetMostGeneral),
-    unifSet_rec_unoptim(G, true, UnifSetMostGeneral, Weight).
+    unifSet_rec_unoptim(G, true, UnifSet, Weight).
 
 % ----- END: standard inference -----
 

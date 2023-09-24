@@ -9,7 +9,6 @@
 % M sample_SC/UC(s(X,Y)). sometimes errors
 % M test sample_SC for nonground + ground with arity >= 1
 % M sample_SC may need cuts
-% R inference may need reintroduction of previous cuts
 % ? BUG: p(cmp1(b), P). -> zero divisor
 % ? twice repeated output of P=1 for inference_SC_test(dq(a),P).
 % ? no backtracking for inference_SC(cmp(X),P). (however, backtracking for G = s(X,Y), r(Y,Z) works...)
