@@ -202,24 +202,28 @@ z(G, Weight) :-
 
 % ----- BEGIN: standard inference -----
 
-% removing all elements of a list that are subsumed by more general terms
-% e.g. [[X,b], [b,b]] --> [[X,b]]
-remove_subsumed([], []).
-remove_subsumed([Head|Tail], ResList) :-
-    % test Head against entire Tail for subsumption
-    remove(Head, Tail, [Candidate|ResList]),
-    remove_subsumed(Tail, ResList).
+% removing all elements of UnifSet that are subsumed by more general terms
+% e.g. [[Prob1, s(X,b), Body1], [Prob2, s(b,b), Body2]] --> [[Prob1, s(X,b), Body1]]
+remove_subsumed([], ResList, ResList).
+remove_subsumed([[_, ProbandHead, _]|ProbandTail], ReferenceList, ResList) :-
+    % find possible terms in ReferenceList subsuming ProbandHead
+    findall(ReferenceHead, (member([_, ReferenceHead, _], ReferenceList), subsumes_chk(ReferenceHead, ProbandHead)), GenericBag),
+    (unifiable(GenericBag, [ProbandHead], _)
+    % no term (except for ProbandHead itself )is more general --> proband kept
+    ->  remove_subsumed(ProbandTail, ReferenceList, ResList)
+    % at least one term is more general --> remove proband
+    ;   delete_variant(ReferenceList, ProbandHead, NewReferenceList),
+        remove_subsumed(ProbandTail, NewReferenceList, ResList)
+    ).
 
-remove(Candidate, [], [Candidate]).
-remove(Candidate, [Head|Tail], ResList) :-
-    ( subsumes_chk(Candidate, Head)
-    % Candidate more generic than Head --> kept in ResList
-    -> remove(Candidate, Tail, [Candidate|ResList])
-    % Candidate more specific than Head --> not added to ResList
-    ;   subsumes_chk(Head, Candidate)
-        -> ResList = [Head|Tail]
-        % no comparison possible
-        ; ResList = [Candidate, Head|Tail]  
+% slightly modified version of delete/3 for variants, i.e. equality up to variable name
+% https://www.swi-prolog.org/pldoc/doc/_SWI_/library/lists.pl?show=src#delete/3
+delete_variant([], _, []).
+delete_variant([[ElemProb,ElemHead,ElemBody]|Tail], Del, Result) :-
+    (   ElemHead =@= Del
+    ->  delete_variant(Tail, Del, Result)
+    ;   Result = [[ElemProb,ElemHead,ElemBody]|Rest],
+        delete_variant(Tail, Del, Rest)
     ).
 
 inference_SC_unoptim(Goal, ProbRounded) :-
@@ -264,7 +268,8 @@ z_unoptim((G1, G2), Weight) :-
     % mutual exclusivity of goals
     G1 \= true,
     findall([Prob, G1, Body], clause((Prob :: G1), Body), UnifSet),
-    unifSet_rec_unoptim(G1, G2, UnifSet, Weight).
+    remove_subsumed(UnifSet, UnifSet, UnifSetMostGeneral),
+    unifSet_rec_unoptim(G1, G2, UnifSetMostGeneral, Weight).
 
 % G non-compound and non-trivial head
 z_unoptim(G, Weight) :-
@@ -272,7 +277,8 @@ z_unoptim(G, Weight) :-
     G \= (_, _),
     G \= true,
     findall([Prob, G, Body], clause((Prob :: G), Body), UnifSet),
-    unifSet_rec_unoptim(G, true, UnifSet, Weight).
+    remove_subsumed(UnifSet, UnifSet, UnifSetMostGeneral),
+    unifSet_rec_unoptim(G, true, UnifSetMostGeneral, Weight).
 
 % ----- END: standard inference -----
 
