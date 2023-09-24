@@ -7,7 +7,6 @@
 % M sample_SC/UC(s(X,Y)). sometimes errors
 % M test sample_SC for nonground + ground with arity >= 1
 % M sample_SC may need cuts
-% ? BUG: invalid predicate calls lead to zero-divisor error
 % ? twice repeated output of P=1 for inference_SC_test(dq(a),P) --> too many choice points left
 % R demo / tests
 % M sampling/inference (SC, UC): uniform output for goals that don't exist
