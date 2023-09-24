@@ -20,9 +20,10 @@ p_unoptim(G, Result) :-
     goal_to_list(GFree, GFreeList),
     p(G, GFree, Result).
 
+
 p_unoptim(G, GFree, Result) :-
-    z_unoptim(G, Numerator),
-    z_unoptim(GFree, Denominator),
+    z_copy_unoptim(G, Numerator),
+    z_copy_unoptim(GFree, Denominator),
     % rounding to fourth decimal for optimised and unoptimised inference results to equal for three decimals
     % e.g. s(a,b),r(b,b) would otherwise result in 0.263 and 0.262 respectively
     round_fourth(Numerator, NumeratorRounded),
@@ -40,6 +41,12 @@ unifSet_rec_unoptim(CurrentGoal, RemainingGoal, [[CProb, CHead, CBody]|UnifSetTa
     z_unoptim((CBody, RemainingGoal), Weight),
     unifSet_rec_unoptim(CurrentGoalFree, RemainingGoalFree, UnifSetTailFree, Akknew),
     Akk is CProb*Weight + Akknew.
+
+% all variable binding outputs show come from backtracking in superlevel (either p or inference_marginal call)
+% --> copying initial goal s.t. all processing bindings are performed on GCopy
+z_copy_unoptim(G, Weight) :-
+    copy_term(G, GCopy),
+    z_unoptim(GCopy, Weight).
 
 % base cases, prevent backtracking to other clauses
 z_unoptim(true, 1).
