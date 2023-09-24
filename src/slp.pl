@@ -364,7 +364,6 @@ sample_SC(Head) :-
             findall([ProbNew::Head, BodyNew], clause((ProbNew :: Head), BodyNew), ClauseBagNew),
             % probabilities of current Head without the failed clause Prob::Head :- Body
             sum_remaining(ClauseBagNew, Prob, 0, Denominator),
-            writeln(Denominator),
             % rewrite probabilities of remaining clauses proportional to remaining branches
             change_prob(ClauseBagNew, [Prob::Head, Body], Denominator)
         )

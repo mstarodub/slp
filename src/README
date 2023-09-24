@@ -2,36 +2,26 @@ to Felix: our code lies in src/
 
 overview of files in src/
 ---
-* v1.pl - naive implementation of unconstrained sampling and inference not using Cussen's algorithms
+* v1.pl - naive implementation of unconstrained sampling and inference without using Cussen's algorithms
+    contains a very simple sampling implementation using inference we came up with
 * v2-inference-standard.pl - exact inference from Cussen's paper without the sharing optimizations
 * slp.pl - final and most relevant version,
     exact inference (marginal and success-constrained) with sharing optimizations
     + sampling (unconstrained loglinear and success-constrained backtrackable model) from Cussen's paper
 
-known bugs
+known shortcomings
 ---
 * twice repeated output of P=1 for inference_SC_test(dq(a),P) --> too many choice points left
+* sample_SC insufficiently binds outputs when denom gets recalculated
+* sample_SC has spurious backtracking in denom recalculation case
+    ?- sample_SC((s(X,Y), r(Z,W))).
+        Z = a,
+        W = b .
 
-TODO
+a note on repeated success-constrained sampling with our backtrackable model implementation
 ---
-remove denom writeln call
-sampling/inference (SC, UC): uniform output for goals that don't exist
-sampling tests/demo
-special sampling with SC inference
-
-sample_SC insufficiently binds outputs when denom gets recalculated
-
-sample_SC has spurious backtracking in denom recalculation case
-?- sample_SC((s(X,Y), r(Z,W))).
-0.95
-Z = a,
-W = b .
-?- sample_SC(r(b,W)).
-0.19999999999999996 (===0.2)
-
-sample_SC cant just assert / retract at will, it doesnt work
-sample_SC(r(b,W)).
---> sum_remaining computes 0.2
-now we mustnt assert the below, because that changes semantics
---> assertz((1::r(b, _292):-p(_292))
-instead, it now says r doesnt sum to 1 with check_unitarity!
+unfortunately, for bodies that aren't pure 'fail', sample_SC cannot just assert / retract at will.
+rewriting the probability tree like that doesn't work out, as other queries that might get issued
+afterwards won't be correct. in the worst case, it is only correct for sampling a goal once.
+a solution for this is to only change the probabilities locally and pass the entire subtree as
+an argument to all recursive calls.
