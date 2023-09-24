@@ -12,7 +12,3 @@ max:
             algorithms: from cussens paper
     * something to aid programmer in meeting requirements
         all clauses add to < 1 für jede mögliche belegung
-            FRAGE: was ist damit gemeint?
-                wir gehen davon aus das alle ereignisse unabhängig aber nicht disjunkt sind.
-                damit berechnet sich die wahscheinlichekit über p1 + p2 - p1*p2 und ist in jeder clause <= 1.
-
