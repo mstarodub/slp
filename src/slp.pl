@@ -4,6 +4,7 @@
 
 % assumptions:
 %   only conjunctions
+%   no nested functors [st(dqq(X))]
 %   normalized SLP (all clauses forming a predicate add up to 1)
 %   pure SLP (no non-prob. clauses)
 
