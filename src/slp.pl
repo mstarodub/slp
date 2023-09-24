@@ -9,16 +9,10 @@
 
 % used for propagating bindings of CurrentGoal to RemainingGoal
 % takes List in the form [X=a, Y=b, ...]
-% TODO: should be this ideally, but issues in e.g. unifSet_rec
 unify_list(_, []) :- !.
 unify_list(Term, [Var=Binding|BagTail]) :-
     Var=Binding,
     unify_list(Term, BagTail).
-% https://stackoverflow.com/a/64722773
-%unify_list(_, []) :- !.
-%unify_list(Term, [Var=Binding|BagTail]) :-
-%    findall(Term, Var=Binding, [Term]),
-%    unify_list(Term, BagTail).
 
 % based on UnifyList generate new subsitutions
 % e.g. SubstitUnground = [X,b], Unification = [X=a], SubstitCopy = [a,b]
@@ -71,7 +65,7 @@ replace_grounds(Term, [GroundHead|GroundTail], [VarHead|VarTail], FreeTerm) :-
 % then - replace them with fresh variables
 free_up_bindings(Goal, FreeGoals) :-
     collect_grounds(Goal, GroundList),
-    % list_to_set to obtain same variable name for same binding
+    % no duplicates to obtain same variable name for same binding
     list_to_set(GroundList, GroundSet),
     % for each ground atom in GroundSet get one fresh free variable
     length(GroundSet, GroundLength),
@@ -79,17 +73,20 @@ free_up_bindings(Goal, FreeGoals) :-
     % for every distinct ground atom in input goal: replace with free variable
     replace_grounds(Goal, GroundSet, VarSet, FreeGoals).
 
+% deep backtracking === bindings searched for throughout entire clause depth, recursively calling clause bodies if necessary
+% shallow === bindings are only searched for on the "head level" of the current goal
+
 % deep backtracking over possible bindings for free variables in goal
-% deep === bindings searched for throughout entire clause depth, recursively calling clause bodies if necessary
 bind_goal([]).
 bind_goal([GoalHead|GoalTail]) :-
     clause((_::GoalHead), Body),
-    % recursion for deep backtracking
+    % recur into body
     term_variables(GoalHead, VarList),
-    ( VarList \= []
+    (   VarList \= []
     ->  goal_to_list(Body, BodyList),
         bind_goal(BodyList)
-    ;   true),
+    ;   true
+    ),
     bind_goal(GoalTail).
 
 ground_substits([], _, []).
@@ -111,14 +108,13 @@ ground_substits([[SharedVars, SubstitArgs]|SubstitsArgsTail], [Functor|_], AllSu
     ground_substits(SubstitsArgsTail, [Functor|_], MoreSubstits),
     append(GeneratedSubstits, MoreSubstits, AllSubstits).
 
-% ----- BEGIN: optimised inference using goal splitting -----
+% optimised inference using goal splitting:
 
 inference_marginal(Goal, ProbRounded) :-
     goal_to_list(Goal, GoalList),
     bind_goal(GoalList),
     goal_to_list(GoalBound, GoalList),
     % for shallow backtracking: printing true for variable unifications X=X
-    % shallow === bindings are only searched for on the "head level" of the current goal
     %term_variables(GoalBound, VarList),
     %( VarList \= [] -> writeln('true,'); true),
     z_copy(GoalBound, Prob),
@@ -130,7 +126,6 @@ inference_SC(Goal, ProbRounded) :-
     bind_goal(GoalList),
     goal_to_list(GoalBound, GoalList),
     % for shallow backtracking: printing true for variable unifications X=X
-    % shallow === bindings are only searched for on the "head level" of the current goal
     %term_variables(GoalBound, VarList),
     %( VarList \= [] -> writeln('true,'); true),
     p(GoalBound, Prob),
@@ -246,7 +241,7 @@ z((G1, G2), Weight) :-
         % grounding remaining free shared variables
         % e.g. grounding X to a, b and c respectively
         % --> SubstitListGrounded =  [[a,b], [b,b], [c,b], [b,b]]
-        ground_substits(SubstitListUnground, [Functor|_], SubstitListGrounded),
+        ground_substits(SubstitListUnground, Functor, SubstitListGrounded),
         % concatenate previously ground and just grounded lists
         append(SubstitListGround, SubstitListGrounded, SubstitList),
         % SubstitSet is now Theta
@@ -266,84 +261,6 @@ z(G, Weight) :-
     % always calling unifSet_rec with just one subgoal left
     % entire goal decomposition happened in z-call for compound goals and substitSet_rec
     unifSet_rec(G, UnifSet, Weight).
-
-% ----- END: optimised inference -----
-
-
-% ----- BEGIN: standard inference -----
-
-% example call: Goal = (s(a,b),r(b,X)), GoalFree = (s(X,Y),r(Y,X)), inference_SC(Goal, Prob).
-inference_SC_unoptim(Goal, GoalFree, ProbRounded) :-
-    % preventing GoalFree from getting grounded by backtracking
-    copy_term(GoalFree, GoalFreeCopy),
-    goal_to_list(Goal, GoalList),
-    bind_goal(GoalList),
-    goal_to_list(GoalBound, GoalList),
-    % for shallow backtracking: printing true for variable unifications X=X
-    % shallow === bindings are only searched for on the "head level" of the current goal
-    %term_variables(GoalBound, VarList),
-    %( VarList \= [] -> writeln('true,'); true),
-    p_unoptim(GoalBound, GoalFreeCopy, Prob),
-    round_third(Prob, ProbRounded).
-
-p_unoptim(G, Result) :-
-    goal_to_list(G, GList),
-    % variables of G and GFree must also differ, otherwise they are bound in first z call and no longer free in second one
-    copy_term(GList, GListCopy),
-    free_up_bindings(GListCopy, GFreeList),
-    goal_to_list(GFree, GFreeList),
-    p(G, GFree, Result).
-    
-
-p_unoptim(G, GFree, Result) :-
-    z_copy_unoptim(G, Numerator),
-    z_copy_unoptim(GFree, Denominator),
-    % rounding to fourth decimal for optimised and unoptimised inference results to equal for three decimals 
-    % e.g. s(a,b),r(b,b) would otherwise result in 0.263 and 0.262 respectively
-    round_fourth(Numerator, NumeratorRounded),
-    round_fourth(Denominator, DenominatorRounded),
-    Result is NumeratorRounded / DenominatorRounded.
-
-unifSet_rec_unoptim(_, _, [], 0).
-unifSet_rec_unoptim(CurrentGoal, RemainingGoal, [[CProb, CHead, CBody]|UnifSetTail], Akk) :-
-    % copy everything but the current C as for next iteration free variables must remain unbound
-    % variable identifications must be preserved, e.g. p(X), q(X) --> p(Y), q(Y)
-    copy_term((CurrentGoal, RemainingGoal, UnifSetTail), (CurrentGoalFree, RemainingGoalFree, UnifSetTailFree)),
-    % binding variables according to current C in UnifSet (--> only one binding choice), e.g. [X=Y, Y=b]
-    % binding is propagated to variables in Remaining Goal
-    CurrentGoal = CHead,
-    z_unoptim((CBody, RemainingGoal), Weight),
-    unifSet_rec_unoptim(CurrentGoalFree, RemainingGoalFree, UnifSetTailFree, Akknew),
-    Akk is CProb*Weight + Akknew.
-
-% all variable binding outputs show come from backtracking in superlevel (either p or inference_marginal call)
-% --> copying initial goal s.t. all processing bindings are performed on GCopy
-z_copy_unoptim(G, Weight) :-
-    copy_term(G, GCopy),
-    z_unoptim(GCopy, Weight).
-
-% base cases, prevent backtracking to other clauses
-z_unoptim(true, 1).
-% fires when e.g. G is body of non-compound head
-z_unoptim((G, true), Weight) :- z_unoptim(G, Weight), !.
-z_unoptim((true, G), Weight) :- z_unoptim(G, Weight), !.
-
-z_unoptim((G1, G2), Weight) :-
-    % mutual exclusivity of goals
-    G1 \= true,
-    findall([Prob, G1, Body], clause((Prob :: G1), Body), UnifSet),
-    unifSet_rec_unoptim(G1, G2, UnifSet, Weight).
-
-% G non-compound and non-trivial head
-z_unoptim(G, Weight) :-
-    % mutual exclusivity of goals
-    G \= (_, _),
-    G \= true,
-    findall([Prob, G, Body], clause((Prob :: G), Body), UnifSet),
-    unifSet_rec_unoptim(G, true, UnifSet, Weight).
-
-% ----- END: standard inference -----
-
 
 % unconstrained loglinear sampling
 sample_UC(Head) :-
@@ -648,3 +565,7 @@ check_unitarity :-
 
 0.1 :: st(a, b).
 0.9 :: st(X, b) :- fail.
+
+5/10 :: dqq(a).
+3/10 :: dqq(b).
+0.5 :: compound(X) :- p(X), q(X).
