@@ -15,7 +15,6 @@
 % ? motivate p/3 with a test case
 % ? backtracking for inference: test functionality scope of current implementation
 % R demo / tests
-% M err if a functor's labels sum to >1'
 % M sampling/inference (SC, UC): uniform output for goals that don't exist
 % M special sampling with SC inference
 

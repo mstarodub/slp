@@ -394,13 +394,48 @@ change_prob([[P::H, B]|BagTail], [Prob::Head, Body], Denominator) :-
     assertz(Rounded::H :- B),
     change_prob(BagTail, [Prob::Head, Body], Denominator).
 
-sum_remaining([], FailedP, Akk, Denominator) :-
-    Denominator is Akk - FailedP.
-sum_remaining([[P::_, _]|BagTail], FailedP, Akk, Denominator) :-
+sum_remaining([], FailedP, Akk, Res) :-
+    Res is Akk - FailedP.
+sum_remaining([[P::_, _]|BagTail], FailedP, Akk, Res) :-
     Akknew is Akk + P,
-    sum_remaining(BagTail, FailedP, Akknew, Denominator).
+    sum_remaining(BagTail, FailedP, Akknew, Res).
 
+check_unitarity_aux(Head) :-
+    findall([Prob::Head, Body], clause((Prob :: Head), Body), ClauseBag),
+    sum_remaining(ClauseBag, 0, 0, Res),
+    writeln(Head),
+    Res > 1,
+    write(user_error, "Probabilities over heads of functor "),
+    write(user_error, Head),
+    write(user_error, "don't sum to 1"),
+    halt.
 
+aux_unitarity_sumfunctors([], _, _, []).
+aux_unitarity_sumfunctors([[Prob::Head]|Tail], PrevFname, Akk, Res) :-
+    Head =.. [FName|_],
+    (   FName = PrevFname
+    ->  Akknew is Akk + Prob,
+        aux_unitarity_sumfunctors(Tail, FName, Akknew, Res)
+    ;   round_third(Akk, RoundedAkk),
+        aux_unitarity_sumfunctors(Tail, FName, Prob, Resnew),
+        Res = [[RoundedAkk::PrevFname]|Resnew]
+    ).
+
+aux_unitarity_msg([P::Functor]) :-
+    (   P > 1
+    ->  ansi_format([bold,fg(red)], 'error', []),
+        format(": probabilities over heads of functor '~w' don't sum to 1~n", [Functor])
+    ;   true
+    ).
+
+check_unitarity :-
+    findall([Prob::Head], clause((Prob :: Head), _), ClauseBag),
+    % initial guard name
+    gensym(reserved_oldhead, X),
+    aux_unitarity_sumfunctors(ClauseBag, X, 0, [_|Res]),
+    maplist(aux_unitarity_msg, Res).
+
+:- initialization(check_unitarity).
 % TESTS
 :- style_check(-singleton).
 
@@ -446,7 +481,7 @@ sum_remaining([[P::_, _]|BagTail], FailedP, Akk, Denominator) :-
 0.1 :: q(c).
 
 0.6 :: dq(X).
-0.2 :: dq(a).
+0.5 :: dq(a).
 
 5/10 :: dqq(a).
 3/10 :: dqq(b).
