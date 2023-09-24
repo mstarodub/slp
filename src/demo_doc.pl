@@ -1,6 +1,4 @@
 % TODO
-% R rounding inconsistent for s(a,b),r(b,b) between inference_SC and inference_SC_unoptim
-% M take another look at substit_rec, unifset_rec - why does unifset_rec unification never happen but for true = true?
 % M remove writeln calls
 % M sample_UC sometimes errors for compound:
 %   sample_UC((s(X,Y), r(Y,Z))).
@@ -9,11 +7,8 @@
 % M sample_SC/UC(s(X,Y)). sometimes errors
 % M test sample_SC for nonground + ground with arity >= 1
 % M sample_SC may need cuts
-% ? BUG: p(cmp1(b), P). -> zero divisor
-% ? twice repeated output of P=1 for inference_SC_test(dq(a),P).
-% ? no backtracking for inference_SC(cmp(X),P). (however, backtracking for G = s(X,Y), r(Y,Z) works...)
-% ? motivate p/3 with a test case
-% ? backtracking for inference: test functionality scope of current implementation
+% ? BUG: invalid predicate calls lead to zero-divisor error
+% ? twice repeated output of P=1 for inference_SC_test(dq(a),P) --> too many choice points left
 % R demo / tests
 % M sampling/inference (SC, UC): uniform output for goals that don't exist
 % M special sampling with SC inference

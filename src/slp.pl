@@ -77,10 +77,12 @@ free_up_bindings(Goal, FreeGoals) :-
     % for every distinct ground atom in input goal: replace with free variable
     replace_grounds(Goal, GroundSet, VarSet, FreeGoals).
 
-% forces backtracking over possible bindings for free variables in goal
+% deep backtracking over possible bindings for free variables in goal
+% deep === bindings searched for throughout entire clause depth, recursively calling clause bodies if necessary
 bind_goal([]).
 bind_goal([GoalHead|GoalTail]) :-
     clause((_::GoalHead), Body),
+    % recursion for deep backtracking
     term_variables(GoalHead, VarList),
     ( VarList \= []
     ->  goal_to_list(Body, BodyList),
@@ -113,48 +115,63 @@ inference_marginal(Goal, ProbRounded) :-
     goal_to_list(Goal, GoalList),
     bind_goal(GoalList),
     goal_to_list(GoalBound, GoalList),
-    term_variables(GoalBound, VarList),
-    ( VarList \= [] -> writeln('true,'); true),
+    % for shallow backtracking: printing true for variable unifications X=X
+    % shallow === bindings are only searched for on the "head level" of the current goal
+    %term_variables(GoalBound, VarList),
+    %( VarList \= [] -> writeln('true,'); true),
     z(GoalBound, Prob),
     round_third(Prob, ProbRounded).
 
+% example call: Goal = (s(a,b),r(b,X)), inference_SC(Goal, Prob).
 inference_SC(Goal, ProbRounded) :-
     goal_to_list(Goal, GoalList),
     bind_goal(GoalList),
     goal_to_list(GoalBound, GoalList),
-    term_variables(GoalBound, VarList),
-    ( VarList \= [] -> writeln('true,'); true),
+    % for shallow backtracking: printing true for variable unifications X=X
+    % shallow === bindings are only searched for on the "head level" of the current goal
+    %term_variables(GoalBound, VarList),
+    %( VarList \= [] -> writeln('true,'); true),
     p(GoalBound, Prob),
     round_third(Prob, ProbRounded).
 
-p(G, RoundedResult) :-
+% example call: Goal = (s(a,b),r(b,X)), GoalFree = (s(X,Y),r(Y,X)), inference_SC(Goal, Prob).
+inference_SC(Goal, GoalFree, ProbRounded) :-
+    % preventing GoalFree from getting grounded by backtracking
+    copy_term(GoalFree, GoalFreeCopy),
+    goal_to_list(Goal, GoalList),
+    bind_goal(GoalList),
+    goal_to_list(GoalBound, GoalList),
+    % for shallow backtracking: printing true for variable unifications X=X
+    % shallow === bindings are only searched for on the "head level" of the current goal
+    %term_variables(GoalBound, VarList),
+    %( VarList \= [] -> writeln('true,'); true),
+    p(GoalBound, GoalFreeCopy, Prob),
+    round_third(Prob, ProbRounded).
+
+% for denominator computation in p/3 bindings in G are automatically freed according to binding pattern
+% e.g.  G = (s(a,b),r(b,a)) --> GFree = (s(X,Y),r(Y,X))
+%       G = (s(a,b),r(b,b)) --> GFree = (s(X,Y),r(Y,Y))
+% --> oftentimes different denominators in same inference_SC/2 call
+p(G, Result) :-
     goal_to_list(G, GList),
     % variables of G and GFree must also differ, otherwise they are bound in first z call and no longer free in second one
     copy_term(GList, GListCopy),
     free_up_bindings(GListCopy, GFreeList),
     goal_to_list(GFree, GFreeList),
-    z(G, Numerator),
-    z(GFree, Denominator),
-    % rounding to fourth decimal for optimised and unoptimised inference results to equal for three decimals
-    % e.g. s(a,b),r(b,b) would otherwise result in 0.263 and 0.262 respectively
-    round_fourth(Numerator, NumeratorRounded),
-    round_fourth(Denominator, DenominatorRounded),
-    Result is NumeratorRounded / DenominatorRounded,
-    round_third(Result, RoundedResult).
+    p(G, GFree, Result).
 
-% Prob's differ for t(X, X) and t(X,Y) when calling t(a,a) if clause t(a,b) exists
-% --> need a way to pass goal + instantiations explicitly: p(t(X,Y), [X=a, Y=a], P).
-p(G, ArgList, RoundedResult) :-
-    copy_term(G, GFree),
-    unify_list(G, ArgList),
+% underlying variable pattern of G is given as additional parameter in GFree
+% e.g.  G = (s(a,b),r(b,a)), GFree = (s(X,Y),r(Z,X))
+%       G = (s(a,c),r(b,a)), GFree = (s(X,Y),r(Z,X))
+% --> same denominator for every backtracking iteration in inference_SC/3 call
+p(G, GFree, Result) :-
     z(G, Numerator),
     z(GFree, Denominator),
     % rounding to fourth decimal for optimised and unoptimised inference results to equal for three decimals 
     % e.g. s(a,b),r(b,b) would otherwise result in 0.263 and 0.262 respectively
     round_fourth(Numerator, NumeratorRounded),
     round_fourth(Denominator, DenominatorRounded),
-    Result is NumeratorRounded / DenominatorRounded,
-    round_third(Result, RoundedResult).
+    Result is NumeratorRounded / DenominatorRounded.
 
 % rounds to third decimal
 round_third(Float, RoundedFloat) :-
@@ -246,29 +263,37 @@ z(G, Weight) :-
 
 % ----- BEGIN: standard inference -----
 
-inference_SC_unoptim(Goal, ProbRounded) :-
+% example call: Goal = (s(a,b),r(b,X)), GoalFree = (s(X,Y),r(Y,X)), inference_SC(Goal, Prob).
+inference_SC_unoptim(Goal, GoalFree, ProbRounded) :-
+    % preventing GoalFree from getting grounded by backtracking
+    copy_term(GoalFree, GoalFreeCopy),
     goal_to_list(Goal, GoalList),
     bind_goal(GoalList),
     goal_to_list(GoalBound, GoalList),
-    term_variables(GoalBound, VarList),
-    ( VarList \= [] -> writeln('true,'); true),
-    p_unoptim(GoalBound, Prob),
+    % for shallow backtracking: printing true for variable unifications X=X
+    % shallow === bindings are only searched for on the "head level" of the current goal
+    %term_variables(GoalBound, VarList),
+    %( VarList \= [] -> writeln('true,'); true),
+    p_unoptim(GoalBound, GoalFreeCopy, Prob),
     round_third(Prob, ProbRounded).
 
-p_unoptim(G, RoundedResult) :-
+p_unoptim(G, Result) :-
     goal_to_list(G, GList),
     % variables of G and GFree must also differ, otherwise they are bound in first z call and no longer free in second one
     copy_term(GList, GListCopy),
     free_up_bindings(GListCopy, GFreeList),
     goal_to_list(GFree, GFreeList),
+    p(G, GFree, Result).
+    
+
+p_unoptim(G, GFree, Result) :-
     z_unoptim(G, Numerator),
     z_unoptim(GFree, Denominator),
     % rounding to fourth decimal for optimised and unoptimised inference results to equal for three decimals 
     % e.g. s(a,b),r(b,b) would otherwise result in 0.263 and 0.262 respectively
     round_fourth(Numerator, NumeratorRounded),
     round_fourth(Denominator, DenominatorRounded),
-    Result is NumeratorRounded / DenominatorRounded,
-    round_third(Result, RoundedResult).
+    Result is NumeratorRounded / DenominatorRounded.
 
 unifSet_rec_unoptim(_, _, [], 0).
 unifSet_rec_unoptim(CurrentGoal, RemainingGoal, [[CProb, CHead, CBody]|UnifSetTail], Akk) :-
