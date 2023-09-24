@@ -15,13 +15,9 @@ known bugs
 TODO
 ---
 remove denom writeln call
-sampling/inference (SC, UC): uniform output for goals that don't t
+sampling/inference (SC, UC): uniform output for goals that don't exist
 sampling tests/demo
 special sampling with SC inference
-
-sample_SC sometimes errors for goals with shared vars:
-  sample_SC((s(X,Y), r(Y,Z))).
-solution: do those cases with retrying variant of loglinear UC sampling
 
 sample_SC insufficiently binds outputs when denom gets recalculated
 
@@ -32,7 +28,6 @@ Z = a,
 W = b .
 ?- sample_SC(r(b,W)).
 0.19999999999999996 (===0.2)
-
 
 sample_SC cant just assert / retract at will, it doesnt work
 sample_SC(r(b,W)).

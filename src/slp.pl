@@ -39,6 +39,16 @@ collect_grounds(Term, GroundList) :-
     ;   GroundList = []
     ).
 
+% all vars
+collect_vars(Term, VarList) :-
+    (   nonvar(Term)
+    ->  Term =.. [_|Args],
+        % concatmap
+        maplist(collect_vars, Args, Nested),
+        flatten(Nested, VarList)
+    ;   VarList = [Term]
+    ).
+
 % replacing ground atoms with variables
 replace(Replacee, Replacement, Term, Res) :-
     (   Term == Replacee
@@ -116,8 +126,8 @@ inference_marginal(Goal, ProbRounded) :-
     bind_goal(GoalList),
     goal_to_list(GoalBound, GoalList),
     % for shallow backtracking: printing true for variable unifications X=X
-    %term_variables(GoalBound, VarList),
-    %( VarList \= [] -> writeln('true,'); true),
+    % term_variables(GoalBound, VarList),
+    % ( VarList \= [] -> writeln('true,'); true),
     z_copy(GoalBound, Prob),
     round_third(Prob, ProbRounded).
 
@@ -127,8 +137,8 @@ inference_SC(Goal, ProbRounded) :-
     bind_goal(GoalList),
     goal_to_list(GoalBound, GoalList),
     % for shallow backtracking: printing true for variable unifications X=X
-    %term_variables(GoalBound, VarList),
-    %( VarList \= [] -> writeln('true,'); true),
+    % term_variables(GoalBound, VarList),
+    % ( VarList \= [] -> writeln('true,'); true),
     p(GoalBound, Prob),
     round_third(Prob, ProbRounded).
 
@@ -141,8 +151,8 @@ inference_SC(Goal, GoalFree, ProbRounded) :-
     goal_to_list(GoalBound, GoalList),
     % for shallow backtracking: printing true for variable unifications X=X
     % shallow === bindings are only searched for on the "head level" of the current goal
-    %term_variables(GoalBound, VarList),
-    %( VarList \= [] -> writeln('true,'); true),
+    % term_variables(GoalBound, VarList),
+    % ( VarList \= [] -> writeln('true,'); true),
     p(GoalBound, GoalFreeCopy, Prob),
     round_third(Prob, ProbRounded).
 
@@ -291,6 +301,13 @@ sample_UC(G) :-
     !,
     G.
 
+% UC resample until success
+sample_UC_retry(G) :-
+    (   call(sample_UC, G)
+    ->  true
+    ;   sample_UC_retry(G)
+    ).
+
 random_clause(Head, Body, ClauseBag) :-
     transform_probabilities(ClauseBag, ShiftedClauseBag),
     % get random float between 0 and 1
@@ -324,26 +341,33 @@ transform_probabilities([[P1::H1, B1],[P2::H2, B2]|Tail], L) :-
 
 % success-constrained backtrackable sampling
 sample_SC(Head) :-
-    findall([Prob::Head, Body], clause((Prob :: Head), Body), ClauseBag),
-    random_clause(Head, Body, ClauseBag),
-    !,
-    % Head + Body ground; bind Prob
-    (   clause((Prob :: Head), Body)
-    ->  true
-        % no such clause --> user asked for impossible compound case
-        %   e.g. sample_SC((s(X,c), r(c,Z))).
-    ;   fail
-    ),
-    % on failure, preprocess the tree, rewriting probabilities
-    (   sample_SC(Body)
-    ->  !
-    ;   % need a fresh ClauseBag, failure might have been encountered + asserted
-        findall([ProbNew::Head, BodyNew], clause((ProbNew :: Head), BodyNew), ClauseBagNew),
-        % probabilities of current Head without the failed clause Prob::Head :- Body
-        sum_remaining(ClauseBagNew, Prob, 0, Denominator),
-        writeln(Denominator),
-        % rewrite probabilities of remaining clauses proportional to remaining branches
-        change_prob(ClauseBagNew, [Prob::Head, Body], Denominator)
+    term_variables(Head, HeadVarSet),
+    collect_vars(Head, HeadVarList),
+    (   HeadVarList \= HeadVarSet
+    ->  !,
+        sample_UC_retry(Head)
+    ;
+        findall([Prob::Head, Body], clause((Prob :: Head), Body), ClauseBag),
+        random_clause(Head, Body, ClauseBag),
+        !,
+        % Head + Body ground; bind Prob
+        (   clause((Prob :: Head), Body)
+        ->  true
+            % no such clause --> user asked for impossible compound case
+            %   e.g. sample_SC((s(X,c), r(c,Z))).
+        ;   fail
+        ),
+        % on failure, preprocess the tree, rewriting probabilities
+        (   sample_SC(Body)
+        ->  !
+        ;   % need a fresh ClauseBag, failure might have been encountered + asserted
+            findall([ProbNew::Head, BodyNew], clause((ProbNew :: Head), BodyNew), ClauseBagNew),
+            % probabilities of current Head without the failed clause Prob::Head :- Body
+            sum_remaining(ClauseBagNew, Prob, 0, Denominator),
+            writeln(Denominator),
+            % rewrite probabilities of remaining clauses proportional to remaining branches
+            change_prob(ClauseBagNew, [Prob::Head, Body], Denominator)
+        )
     ).
 
 sample_SC((G1, G2)) :-
