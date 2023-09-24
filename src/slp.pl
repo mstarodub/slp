@@ -20,12 +20,14 @@ unify_list(Term, [Var=Binding|BagTail]) :-
 %    findall(Term, Var=Binding, [Term]),
 %    unify_list(Term, BagTail).
 
-generate_substits(SubstitUnground, UnifyList, SubstitCopy) :-
-    copy_term((SubstitUnground, UnifyList), (SubstitCopy, UnifyCopy)),
-    unify_list(SubstitCopy, UnifyCopy).
+% based on UnifyList generate new subsitutions
+% e.g. SubstitUnground = [X,b], Unification = [X=a], SubstitCopy = [a,b]
+generate_substits(SubstitUnground, Unification, SubstitCopy) :-
+    copy_term((SubstitUnground, Unification), (SubstitCopy, UnifCopy)),
+    unify_list(SubstitCopy, UnifCopy).
 
 % other predicates analyzing and replacing (sub)terms operate on lists
-% rewrites conjuncts to elements
+% therefore: rewrite conjuncts to elements
 goal_to_list((G1, G2), [G1|GoalTail]) :- goal_to_list(G2, GoalTail).
 goal_to_list(G, [G]) :- G \= (_ , _).
 
@@ -42,7 +44,7 @@ collect_grounds(Term, GroundList) :-
     ;   GroundList = []
     ).
 
-% used for replacing ground atoms with variables
+% replacing ground atoms with variables
 replace(Replacee, Replacement, Term, Res) :-
     (   Term == Replacee
     % base case - ground atom
@@ -119,7 +121,7 @@ inference_marginal(Goal, ProbRounded) :-
     % shallow === bindings are only searched for on the "head level" of the current goal
     %term_variables(GoalBound, VarList),
     %( VarList \= [] -> writeln('true,'); true),
-    z(GoalBound, Prob),
+    z_copy(GoalBound, Prob),
     round_third(Prob, ProbRounded).
 
 % example call: Goal = (s(a,b),r(b,X)), inference_SC(Goal, Prob).
@@ -165,8 +167,8 @@ p(G, Result) :-
 %       G = (s(a,c),r(b,a)), GFree = (s(X,Y),r(Z,X))
 % --> same denominator for every backtracking iteration in inference_SC/3 call
 p(G, GFree, Result) :-
-    z(G, Numerator),
-    z(GFree, Denominator),
+    z_copy(G, Numerator),
+    z_copy(GFree, Denominator),
     % rounding to fourth decimal for optimised and unoptimised inference results to equal for three decimals 
     % e.g. s(a,b),r(b,b) would otherwise result in 0.263 and 0.262 respectively
     round_fourth(Numerator, NumeratorRounded),
@@ -207,6 +209,13 @@ substitSet_rec(CurrentGoal, RemainingGoal, [Substitutions|PairedVarBindingsTail]
     % sum over all possible splitting substitutions
     substitSet_rec(CurrentGoalFree, RemainingGoalFree, PairedVarBindingsTailFree, Akknew),
     Akk is Weight1*Weight2 + Akknew.
+
+% all variable binding outputs show come from backtracking in superlevel (either p or inference_marginal call)
+% --> copying initial goal s.t. all processing bindings are performed on GCopy
+% e.g. z(p(X), Prob): X = a, Prob = 1.0, vs. z_copy(p(X), Prob): Prob = 1.0
+z_copy(G, Weight) :-
+    copy_term(G, GCopy),
+    z(GCopy, Weight).
 
 % base cases, prevent backtracking to other clauses further down
 z(true, 1) :- !.
@@ -287,8 +296,8 @@ p_unoptim(G, Result) :-
     
 
 p_unoptim(G, GFree, Result) :-
-    z_unoptim(G, Numerator),
-    z_unoptim(GFree, Denominator),
+    z_copy_unoptim(G, Numerator),
+    z_copy_unoptim(GFree, Denominator),
     % rounding to fourth decimal for optimised and unoptimised inference results to equal for three decimals 
     % e.g. s(a,b),r(b,b) would otherwise result in 0.263 and 0.262 respectively
     round_fourth(Numerator, NumeratorRounded),
@@ -306,6 +315,12 @@ unifSet_rec_unoptim(CurrentGoal, RemainingGoal, [[CProb, CHead, CBody]|UnifSetTa
     z_unoptim((CBody, RemainingGoal), Weight),
     unifSet_rec_unoptim(CurrentGoalFree, RemainingGoalFree, UnifSetTailFree, Akknew),
     Akk is CProb*Weight + Akknew.
+
+% all variable binding outputs show come from backtracking in superlevel (either p or inference_marginal call)
+% --> copying initial goal s.t. all processing bindings are performed on GCopy
+z_copy_unoptim(G, Weight) :-
+    copy_term(G, GCopy),
+    z_unoptim(GCopy, Weight).
 
 % base cases, prevent backtracking to other clauses
 z_unoptim(true, 1).
@@ -337,6 +352,13 @@ sample_UC(Head) :-
     random_clause(Head, Body, ClauseBag),
     % sample once - stick to choice of random_clause
     !,
+    % Head + Body ground; bind Prob
+    (   clause((Prob :: Head), Body)
+    ->  true
+        % no such clause --> user asked for impossible compound case
+        %   e.g. sample_UC((s(X,Y), r(Y,Z))).
+    ;   fail
+    ),
     sample_UC(Body).
 
 sample_UC((G1, G2)) :-
@@ -365,6 +387,8 @@ choose([[ShiftedProb::ShiftedHead, Body]|Tail], SampleProb, Sample) :-
     ).
 
 % shift probabilities so we can sample from uniform distribution
+% impossible case
+transform_probabilities([], []) :- fail.
 % implicit failure/base case:
 % probability of failure === 1 - sum of probabilities for successful cases
 transform_probabilities([[P::H, B]], [[P::H, B], Failure]) :-
@@ -372,7 +396,9 @@ transform_probabilities([[P::H, B]], [[P::H, B], Failure]) :-
     functor(H, FailureName, FailureArity),
     length(K, FailureArity),
     FailureH =.. [FailureName|K],
-    Failure = [1-P::FailureH, fail].
+    % need it in SC sampling for rewriting the tree
+    assertz(1-P::FailureH :- fail),
+    Failure = [1::FailureH, fail].
 transform_probabilities([[P1::H1, B1],[P2::H2, B2]|Tail], L) :-
     TransfromedProb is P1 + P2,
     transform_probabilities([[TransfromedProb::H2, B2]|Tail], TempL),
@@ -382,38 +408,44 @@ transform_probabilities([[P1::H1, B1],[P2::H2, B2]|Tail], L) :-
 sample_SC(Head) :-
     findall([Prob::Head, Body], clause((Prob :: Head), Body), ClauseBag),
     random_clause(Head, Body, ClauseBag),
-    % Head + Body ground; bind Prob
-    clause((Prob :: Head), Body),
     !,
+    % Head + Body ground; bind Prob
+    (   clause((Prob :: Head), Body)
+    ->  true
+        % no such clause --> user asked for impossible compound case
+        %   e.g. sample_SC((s(X,c), r(c,Z))).
+    ;   fail
+    ),
+    % on failure, preprocess the tree, rewriting probabilities
     (   sample_SC(Body)
     ->  !
-    % if we fail in the above, preprocess the tree, rewriting probabilities
-    ;   writeln([Prob::Head, Body]),
+    ;   % need a fresh ClauseBag, failure might have been encountered + asserted
+        findall([ProbNew::Head, BodyNew], clause((ProbNew :: Head), BodyNew), ClauseBagNew),
         % probabilities of current Head without the failed clause Prob::Head :- Body
-        sum_remaining(ClauseBag, Prob, 0, Denominator),
+        sum_remaining(ClauseBagNew, Prob, 0, Denominator),
         writeln(Denominator),
         % rewrite probabilities of remaining clauses proportional to remaining branches
-        change_prob(ClauseBag, [Prob::Head, Body], Denominator)
+        change_prob(ClauseBagNew, [Prob::Head, Body], Denominator)
     ).
 
 sample_SC((G1, G2)) :-
+    !,
     sample_SC(G1),
     sample_SC(G2).
 
 sample_SC(G) :-
+    !,
     G.
 
 change_prob([], [_::_, _], _).
 % failed clause Prob::Head :- Body --> 0 probability
 change_prob([[Prob::Head, Body]|BagTail], [Prob::Head, Body], Denominator) :-
-    writeln([Prob::Head, Body]),
     retract(Prob::Head :- Body),
     % assertz(0::Head :- Body),
     change_prob(BagTail, [Prob::Head, Body], Denominator).
 % otherwise --> adjust
 % no backtracking of failed case to this because clause with that Prob was retracted
 change_prob([[P::H, B]|BagTail], [Prob::Head, Body], Denominator) :-
-    writeln(BagTail),
     retract(P::H :- B),
     round_third(P/Denominator, Rounded),
     assertz(Rounded::H :- B),
@@ -424,16 +456,6 @@ sum_remaining([], FailedP, Akk, Res) :-
 sum_remaining([[P::_, _]|BagTail], FailedP, Akk, Res) :-
     Akknew is Akk + P,
     sum_remaining(BagTail, FailedP, Akknew, Res).
-
-check_unitarity_aux(Head) :-
-    findall([Prob::Head, Body], clause((Prob :: Head), Body), ClauseBag),
-    sum_remaining(ClauseBag, 0, 0, Res),
-    writeln(Head),
-    Res > 1,
-    write(user_error, "Probabilities over heads of functor "),
-    write(user_error, Head),
-    write(user_error, "don't sum to 1"),
-    halt.
 
 aux_unitarity_sumfunctors([], _, _, []).
 aux_unitarity_sumfunctors([[Prob::Head]|Tail], PrevFname, Akk, Res) :-
@@ -497,13 +519,69 @@ check_unitarity :-
 % 0 :: ssct2 :- fail.
 % 1/2/0.5 (===1) :: ssct2.
 
+% --------------------
 
-% want: z((q(X), p(X)), W) === 0.46
+% data and test calls showcasing functionality scope of code
+
+0.5 :: imSC(a).
+0.3 :: imSC(b).
+% difference inference_marginal - inference_SC
+% probabilites of all clauses making up predicate imSC add up to 0.8 < 1 --> implicit failure with prob 0.2
+% inference_marginal(imSC(X), Prob). 
+%   X = a, Prob = 0.5
+%   X = b, Prob = 0.3
+% inference_SC(imSC(X), Prob).
+%   X = a, Prob = 0.5/0.8 = 0.625
+%   X = b, Prob = 0.3/0.8 = 0.375
+
+0.3 :: iSC23(a,a).
+0.2 :: iSC23(a,b).
+% difference inference_SC/2 - inference_SC/3
+% automatic freeing of bindings for inference_SC/2 leads to different denominators for p quotient
+% inference_SC(iSC23(X,Y), Prob).
+%   X = Y, Y = a, Prob = 0.3/0.3 = 1      p/2 called with s(a,a) --> freed goal === s(X,X) --> Denominator = z(s(X,X), P), P = 0.3
+%   X = a, Y = b, Prob = 0.2/0.5 = 0.4    p/2 called with s(a,b) --> freed goal === s(X,Y) --> Denominator = z(s(X,Y), P), P = 0.3 + 0.2 = 0.5
+% inference_SC(iSC23(X,Y), iSC23(X,Y), Prob).
+%   X = Y, Y = a, Prob = 0.3/0.5 = 0.6    p/3 called with s(a,a) and free goal s(X,Y) --> Denominator = z(s(X,Y), P), P = 0.3 + 0.2 = 0.5
+%   X = a, Y = b, Prob = 0.2/0.5 = 0.4    p/3 called with s(a,b) and free goal s(X,Y) --> Denominator = z(s(X,Y), P), P = 0.3 + 0.2 = 0.5
+
 0.6 :: p(a).
 0.4 :: p(b).
 0.3 :: q(a).
-0.6 :: q(b).
-0.1 :: q(c).
+0.7 :: q(b).
+% difference inference_SC_unoptim - inference_SC
+% inference_SC_unoptim naively calls subgoals recursively --> subgoals may be computed more than once
+% inference_SC computes set of splitting substitution first --> calling subgoals with no shared variables independently of each other sparing recursions
+% inference_SC_unoptim((p(X), q(Y)), Prob).
+%   p(X),q(Y) --> unifSet(p(X)) === {X = a, X = b}
+%       X = a: p(a),q(Y) --> unifSet(q(Y)) === {Y = a, Y = b}
+%           Y = a: q(a)
+%           Y = b: q(b)
+%       X = b: p(b),q(Y) --> unifSet(q(Y)) === {Y = a, Y = b}
+%           Y = a: q(a)
+%           Y = b: q(b)
+% inference_SC((p(X), q(Y)), Prob).
+%   sharedVariables(p(X), q(Y)) === [] --> p(X) and q(Y) are processed independently
+%   p(X) --> unifSet(p(X)) === {X = a, X = b}
+%       X = a: p(a)
+%       X = b; p(b)
+%   q(Y) --> unifSet(q(Y)) === {Y = a, Y = b}
+%       Y = a; q(a)
+%       Y = b; q(b)
+
+% difference inference_SC - p or inference_marginal - z_copy
+% inferences calls backtrack, i.e. variables get successively bound to all possible (ground) values
+% p and z_copy calls do not backtrack, i.e. output is sum over results for all possible bindings of input variables
+% inference_SC((p(X),q(X)), (p(X),q(Y)), Prob).
+%   X = a, Prob = 0.18
+%   X = b, Prob = 0.28
+% p((p(X),q(X)), (p(X),q(Y)), Prob).
+%   Prob = 0.18 + 0.28 = 0.46
+% inference_marginal((p(X),q(X)), Prob).
+%   X = a, Prob = 0.18
+%   X = b, Prob = 0.28
+% z_copy((p(X),q(X)), Prob).
+%   Prob = 0.45999... === 0.46
 
 0.6 :: dq(X).
 0.5 :: dq(a).

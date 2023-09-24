@@ -8,7 +8,30 @@
 % M test sample_SC for nonground + ground with arity >= 1
 % M sample_SC may need cuts
 % ? twice repeated output of P=1 for inference_SC_test(dq(a),P) --> too many choice points left
+
+% wip/important
+% * sample_SC sometimes errors for goals with shared vars:
+%   sample_SC((s(X,Y), r(Y,Z))).
+% solution: do those cases with retrying variant of loglinear UC sampling
+
+% * sample_SC insufficiently binds outputs when denom gets recalculated
+% * sample_SC has spurious backtracking in denom recalculation case
+% ?- sample_SC((s(X,Y), r(Z,W))).
+% 0.95
+% Z = a,
+% W = b .
+% ?- sample_SC(r(b,W)).
+% 0.19999999999999996 (===0.2)
+
+% * sample_SC cant just assert / retract at will, it doesnt work
+% sample_SC(r(b,W)).
+% --> sum_remaining computes 0.2
+% now we mustnt assert the below, because that changes semantics
+% --> assertz((1::r(b, _292):-p(_292))
+% instead, it now says r doesnt sum to 1 with check_unitarity!
+
 % R demo / tests
+% M remove denom writeln call
 % M sampling/inference (SC, UC): uniform output for goals that don't exist
 % M special sampling with SC inference
 
@@ -33,6 +56,17 @@
 1/2 :: sst2(a).
 1/2 :: sst3(b).
 1/2 :: sst3(c).
+
+% --------------------
+
+% Test for demo showcasing scope of project
+%
+% requiring both unifSet_rec and substitSet_rec for optimised inference
+% compound and non-compound goals
+% ground, partially ground and free goals
+% dependent and independent goals
+% backtracking only for top level; also backtracking for body level
+%
 
 
 
