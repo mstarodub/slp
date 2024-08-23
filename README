@@ -1,6 +1,4 @@
-to Felix: our code lies in src/
-
-overview of files in src/
+overview
 ---
 * v1.pl - naive implementation of unconstrained sampling and inference without using Cussen's algorithms
     contains a very simple sampling implementation using inference we came up with
